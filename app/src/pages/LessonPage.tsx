@@ -1,12 +1,12 @@
-import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { loadLesson } from '../lib/contentLoader';
-import { speak } from '../lib/tts';
+import { useEffect, useRef, useState } from 'react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { loadLesson, loadMeta } from '../lib/contentLoader';
+import { speak, speakAsync, stopSpeak } from '../lib/tts';
 import ChunkCard from '../components/ChunkCard';
 import { useSettingsStore } from '../stores/useSettingsStore';
 import { useProgressStore } from '../stores/useProgressStore';
 import Icon from '../components/Icon';
-import type { Lesson } from '../types/lesson';
+import type { Lesson, LessonMeta } from '../types/lesson';
 
 type Tab = 'text' | 'vocab' | 'grammar' | 'dialog' | 'trap';
 const TABS: [Tab, string][] = [
@@ -22,7 +22,53 @@ export default function LessonPage() {
   const [lesson, setLesson] = useState<Lesson | null | undefined>(undefined);
   const [tab, setTab] = useState<Tab>('text');
   const { showZh, showPinyin, showKo, toggle } = useSettingsStore();
-  const { done, markDone, setLast } = useProgressStore();
+  const { done, markDone, setLast, mastered } = useProgressStore();
+  const [meta, setMeta] = useState<LessonMeta[]>([]);
+  const [playing, setPlaying] = useState(-1);
+  const token = useRef(0);
+  const touch = useRef<{ x: number; y: number } | null>(null);
+  const nav = useNavigate();
+
+  useEffect(() => { void loadMeta().then(setMeta); }, []);
+  // 과를 벗어나면 연속 재생 중단
+  useEffect(() => () => { token.current++; stopSpeak(); }, [id]);
+  // 스크롤 70% 이상 → 읽기 완료 (해금과 무관)
+  useEffect(() => {
+    if (!lesson) return;
+    const onScroll = () => {
+      const el = document.documentElement;
+      const max = el.scrollHeight - el.clientHeight;
+      if (max <= 0 || (el.scrollTop || window.scrollY) / max >= 0.7) markDone(lesson.id);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [lesson, markDone, tab]);
+
+  const playAll = async () => {
+    if (!lesson) return;
+    if (playing >= 0) { token.current++; stopSpeak(); setPlaying(-1); return; }
+    const my = ++token.current;
+    for (let i = 0; i < lesson.text.length; i++) {
+      if (token.current !== my) return;
+      setPlaying(i);
+      await speakAsync(lesson.text[i].zh);
+      if (token.current !== my) return;
+      await new Promise((r) => setTimeout(r, 1000)); // 자동 연속 재생 간격
+    }
+    if (token.current === my) setPlaying(-1);
+  };
+  const idx = meta.findIndex((m) => m.id === id);
+  const prev = idx > 0 ? meta[idx - 1] : undefined;
+  const next = idx >= 0 ? meta[idx + 1] : undefined;
+  const onTouchEnd = (e: React.TouchEvent) => {
+    const t = touch.current; touch.current = null;
+    if (!t) return;
+    const dx = e.changedTouches[0].clientX - t.x, dy = e.changedTouches[0].clientY - t.y;
+    if (Math.abs(dx) > 80 && Math.abs(dx) > Math.abs(dy) * 2) {
+      const to = dx < 0 ? next : prev;
+      if (to) nav(`/lesson/${to.id}`);
+    }
+  };
 
   useEffect(() => {
     setLesson(undefined);
@@ -47,7 +93,7 @@ export default function LessonPage() {
     `px-3 py-1 rounded-full text-sm border ${on ? 'bg-brand text-white border-brand' : 'border-slate-300 text-slate-600'}`;
 
   return (
-    <main className="p-4">
+    <main className="p-4 pb-24" onTouchStart={(e) => { touch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }; }} onTouchEnd={onTouchEnd}>
       <Link to="/path" className="text-sm text-slate-500">
         ← 학습 경로
       </Link>
@@ -56,6 +102,14 @@ export default function LessonPage() {
       </h1>
       <div className="text-sm text-slate-600 mb-3">
         {lesson.titlePinyin} · {lesson.titleKo}
+      </div>
+      <div className="flex flex-wrap gap-2 mb-3">
+        <Link to={`/lesson/${lesson.id}/mastery`} className="inline-flex items-center gap-1.5 rounded-full bg-brand text-white text-sm font-semibold px-3 py-1">
+          <Icon name="target" size={14} /> 4단계 마스터리{mastered[lesson.id] ? ' (완료)' : ''}
+        </Link>
+        <button type="button" onClick={() => void playAll()} className="inline-flex items-center gap-1.5 rounded-full border border-brand text-brand text-sm font-semibold px-3 py-1">
+          <Icon name={playing >= 0 ? 'stop' : 'play'} size={14} /> {playing >= 0 ? '멈추기' : '전체 듣기'}
+        </button>
       </div>
       <div className="flex gap-2 mb-3">
         <button className={chip(showZh)} onClick={() => toggle('showZh')}>
@@ -82,7 +136,9 @@ export default function LessonPage() {
         ))}
       </div>
 
-      {tab === 'text' && lesson.text.map((v, i) => <ChunkCard key={i} verse={v} />)}
+      {tab === 'text' && lesson.text.map((v, i) => (
+        <div key={i} className={i === playing ? 'ring-2 ring-brand rounded-xl' : ''}><ChunkCard verse={v} /></div>
+      ))}
 
       {tab === 'vocab' && (
         <>
@@ -169,8 +225,12 @@ export default function LessonPage() {
         disabled={!!done[lesson.id]}
         className="mt-4 w-full rounded-xl bg-brand text-white py-3 disabled:bg-slate-300"
       >
-        {done[lesson.id] ? '완료한 과' : '이 과 완료로 표시'}
+        {done[lesson.id] ? '읽기 완료' : '이 과 읽기 완료로 표시'}
       </button>
+      <div className="flex justify-between gap-2 mt-3">
+        {prev ? <Link to={`/lesson/${prev.id}`} className="text-sm text-brand inline-flex items-center gap-1"><Icon name="chevronLeft" size={14} /> 이전 과</Link> : <span />}
+        {next ? <Link to={`/lesson/${next.id}`} className="text-sm text-brand inline-flex items-center gap-1">다음 과 <Icon name="chevronRight" size={14} /></Link> : <span />}
+      </div>
     </main>
   );
 }

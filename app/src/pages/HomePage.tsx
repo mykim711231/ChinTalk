@@ -1,8 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { loadMeta, LEVEL_NAMES } from '../lib/contentLoader';
+import { loadMeta, loadVol, LEVEL_NAMES } from '../lib/contentLoader';
+import { dayIndex, recommendLesson } from '../lib/recommend';
+import { speak } from '../lib/tts';
+import { useHighlightStore } from '../stores/useHighlightStore';
+import InstallModal from '../components/InstallModal';
+import type { Verse } from '../types/lesson';
 import { isInAppBrowser, isIOS, isStandalone } from '../lib/inapp';
-import { useProgressStore } from '../stores/useProgressStore';
+import { calcStreak, isUnlocked, useProgressStore } from '../stores/useProgressStore';
 import { useSettingsStore } from '../stores/useSettingsStore';
 import type { LessonMeta } from '../types/lesson';
 import Icon from '../components/Icon';
@@ -16,11 +21,29 @@ export default function HomePage() {
   const [copied, setCopied] = useState(false);
   const [qr, setQr] = useState(false);
   const appUrl = window.location.origin + import.meta.env.BASE_URL;
-  const { done, last } = useProgressStore();
+  const prog = useProgressStore();
+  const { done, last } = prog;
   const level = useSettingsStore((s) => s.level);
+  const marks = useHighlightStore((s) => s.marks);
+  const [sod, setSod] = useState<{ verse: Verse; title: string } | null>(null);
   useEffect(() => {
     loadMeta().then(setMeta);
   }, []);
+  useEffect(() => {
+    // 오늘의 한 마디: 날짜 기준 고정 선택 (선택 레벨의 첫 권)
+    void loadVol(level * 2 - 1).then((ls) => {
+      const l = ls[dayIndex(ls.length)];
+      const v = l?.text[dayIndex(l.text.length)];
+      if (l && v) setSod({ verse: v, title: `Vol.${l.vol} · ${l.no}과 ${l.titleZh}` });
+    }).catch(() => undefined);
+  }, [level]);
+  const streak = calcStreak(prog.days);
+  const rec = recommendLesson(meta, prog, level);
+  const unlockedCount = meta.filter((m) => isUnlocked(prog, m.id)).length;
+  const mv = Object.values(marks);
+  const cnt = { green: mv.filter((c) => c === 'green').length, yellow: mv.filter((c) => c === 'yellow').length, red: mv.filter((c) => c === 'red').length };
+  const sum = cnt.green + cnt.yellow + cnt.red;
+  const rate = (n: number) => (sum ? Math.round((n / sum) * 100) : 0);
   const lv = meta.filter((m) => m.level === level);
   const doneCount = lv.filter((m) => done[m.id]).length;
   const inApp = isInAppBrowser();
@@ -59,6 +82,12 @@ export default function HomePage() {
         </Link>
       )}
 
+      <div className="flex items-center gap-2">
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-brand-200 bg-brand-50 text-brand text-sm font-semibold px-3 py-1" aria-label={`연속 학습 ${streak}일`}>
+          <Icon name="flame" size={16} /> 연속 학습 {streak}일
+        </span>
+      </div>
+
       <section className="rounded-2xl bg-brand text-white p-5 shadow-sm">
         <p className="text-xs opacity-80">중국어 구조화 듣기</p>
         <h1 className="text-2xl font-extrabold mt-0.5">소리로 배우는 중국어</h1>
@@ -74,6 +103,62 @@ export default function HomePage() {
             <Icon name="qr" size={16} /> QR 코드
           </button>
         </div>
+      </section>
+
+      {sod && (
+        <section className={`${card} p-4`} aria-label="오늘의 한 마디">
+          <div className="text-xs text-slate-500">오늘의 한 마디 · {sod.title}</div>
+          <div className="flex items-start gap-3 mt-1">
+            <div className="flex-1 min-w-0">
+              <div className="text-xl">{sod.verse.zh}</div>
+              <div className="text-sm text-slate-600">{sod.verse.pinyin}</div>
+              <div className="text-sm">{sod.verse.ko}</div>
+            </div>
+            <button type="button" aria-label="오늘의 한 마디 듣기" onClick={() => void speak(sod.verse.zh)} className="flex-none w-10 h-10 rounded-full bg-brand text-white grid place-items-center">
+              <Icon name="speaker" size={18} />
+            </button>
+          </div>
+        </section>
+      )}
+
+      <Link to={rec ? `/daily?id=${rec.id}` : '/daily'} className={`${card} flex items-center gap-3 p-4`}>
+        <Icon name="timer" size={24} className="text-brand flex-none" />
+        <span className="flex-1 min-w-0">
+          <b className="block">오늘의 10분 데일리</b>
+          <span className="block text-sm text-slate-500 truncate">{rec ? `추천: Vol.${rec.vol} · ${rec.no}과 · ${rec.titleZh}` : '불러오는 중…'}</span>
+        </span>
+        <Icon name="chevronRight" size={16} className="text-slate-400" />
+      </Link>
+
+      {lastLesson && (
+        <Link to={`/lesson/${lastLesson.id}/mastery`} className={`${card} flex items-center gap-3 p-4`}>
+          <Icon name="target" size={24} className="text-brand flex-none" />
+          <span className="flex-1 min-w-0">
+            <b className="block">이어 학습하기 (마스터리)</b>
+            <span className="block text-sm text-slate-500 truncate">{lastLesson.no}. {lastLesson.titleZh} · {lastLesson.titleKo}</span>
+          </span>
+          <Icon name="chevronRight" size={16} className="text-slate-400" />
+        </Link>
+      )}
+
+      <section className={`${card} p-4`} aria-label="이해도 달성률">
+        <h2 className="font-bold">이해도 달성률</h2>
+        {sum === 0 ? (
+          <p className="text-sm text-slate-500 mt-1">본문 카드의 동그라미를 눌러 이해도를 표시해 보세요. 초록 → 노랑 → 빨강 순서로 바뀝니다.</p>
+        ) : (
+          <>
+            <div className="flex h-2.5 rounded-full overflow-hidden mt-2 bg-slate-200" role="img" aria-label={`초록 ${rate(cnt.green)}%, 노랑 ${rate(cnt.yellow)}%, 빨강 ${rate(cnt.red)}%`}>
+              <div className="bg-green-600" style={{ width: `${rate(cnt.green)}%` }} />
+              <div className="bg-yellow-500" style={{ width: `${rate(cnt.yellow)}%` }} />
+              <div className="bg-red-600" style={{ width: `${rate(cnt.red)}%` }} />
+            </div>
+            <div className="flex gap-4 text-sm mt-2">
+              <span><span className="inline-block w-2.5 h-2.5 rounded-full bg-green-600 mr-1" />바로 이해 {rate(cnt.green)}%</span>
+              <span><span className="inline-block w-2.5 h-2.5 rounded-full bg-yellow-500 mr-1" />헷갈림 {rate(cnt.yellow)}%</span>
+              <span><span className="inline-block w-2.5 h-2.5 rounded-full bg-red-600 mr-1" />생소 {rate(cnt.red)}%</span>
+            </div>
+          </>
+        )}
       </section>
 
       <section className={`${card} p-4`}>
@@ -107,6 +192,12 @@ export default function HomePage() {
           );
         })}
       </div>
+      <Link to="/passive" className={`${card} flex items-center gap-3 p-4`}>
+        <Icon name="headphones" size={24} className="text-brand flex-none" />
+        <span className="flex-1"><b className="block">편하게 듣기</b><span className="text-sm text-slate-500">해금된 음원 {unlockedCount}과</span></span>
+        <Icon name="chevronRight" size={16} className="text-slate-400" />
+      </Link>
+      <InstallModal />
       {qr && <InviteQrModal url={appUrl} onClose={() => setQr(false)} />}
     </main>
   );

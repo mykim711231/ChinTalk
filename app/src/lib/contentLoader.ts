@@ -8,8 +8,9 @@ export const loadVol = (vol: number) => {
   return volCache.get(vol)!;
 };
 export const loadLesson = async (id: string) => {
-  const vol = parseInt(id.slice(1), 10);
-  return (await loadVol(vol)).find(l => l.id === id);
+  const m = /^v([1-8])-\d+$/.exec(id);
+  if (!m) return undefined;
+  try { return (await loadVol(Number(m[1]))).find(l => l.id === id); } catch { return undefined; }
 };
 export const LEVEL_NAMES: Record<number, string> = {
   1: 'Lv.1 왕초보 귀 트이기', 2: 'Lv.2 중국어 벽 뚫기', 3: 'Lv.3 네이티브 리듬 정복', 4: 'Lv.4 프리토킹 마스터',

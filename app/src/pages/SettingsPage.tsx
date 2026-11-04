@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { cachedCount, deleteVol, downloadVol, volUrls } from '../lib/offline';
 import { LEVEL_NAMES } from '../lib/contentLoader';
 import { useSettingsStore, type FontSize, type BlueLight } from '../stores/useSettingsStore';
 import { speak } from '../lib/tts';
@@ -12,8 +13,43 @@ import Icon from '../components/Icon';
 
 const pill = 'inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white text-sm font-semibold px-3 py-2';
 
+function VolDownload({ vol }: { vol: number }) {
+  const [urls, setUrls] = useState<string[]>([]);
+  const [have, setHave] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const cancel = useRef({ cancelled: false });
+  const refresh = async (u = urls) => setHave(await cachedCount(u));
+  useEffect(() => {
+    let alive = true;
+    void volUrls(vol).then(async (u) => { if (!alive) return; setUrls(u); setHave(await cachedCount(u)); }).catch(() => undefined);
+    return () => { alive = false; cancel.current.cancelled = true; };
+  }, [vol]);
+  const total = urls.length;
+  const full = total > 0 && have >= total;
+  const run = async () => {
+    cancel.current = { cancelled: false };
+    setBusy(true); setErr(null);
+    try { await downloadVol(urls, setHave, cancel.current); } catch { setErr('다운로드에 실패했어요. 연결을 확인하고 다시 시도해 주세요.'); }
+    setBusy(false); void refresh();
+  };
+  const remove = async () => { await deleteVol(urls); void refresh(); };
+  return (
+    <Row label={`Vol.${vol} 음원`} description={total ? `${have}/${total}개 저장됨${err ? ' · ' + err : ''}` : '음원이 아직 준비 중이에요.'}>
+      {busy ? (
+        <button type="button" className={pill} onClick={() => { cancel.current.cancelled = true; }}>중단 {Math.round((have / Math.max(1, total)) * 100)}%</button>
+      ) : full ? (
+        <button type="button" className={pill} onClick={() => void remove()}><Icon name="trash" size={14} /> 삭제</button>
+      ) : (
+        <button type="button" className={pill} disabled={!total} onClick={() => void run()}><Icon name="download" size={14} /> 받기</button>
+      )}
+    </Row>
+  );
+}
+
 export default function SettingsPage() {
   const s = useSettingsStore();
+  const nav = useNavigate();
   const [storage, setStorage] = useState<StorageInfo | null>(null);
   const [msg, setMsg] = useState<{ text: string; error?: boolean } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -133,6 +169,13 @@ export default function SettingsPage() {
       </section>
 
       <section>
+        <SectionHeader title="오프라인 음원" subtitle="권 단위로 받아 두면 인터넷 없이도 재생돼요. (권당 약 7MB, Wi-Fi 권장)" />
+        <Card className="divide-y divide-slate-200">
+          {[1, 2, 3, 4, 5, 6, 7, 8].map((v) => <VolDownload key={v} vol={v} />)}
+        </Card>
+      </section>
+
+      <section>
         <SectionHeader title="학습 진행상황 백업" subtitle="진도·형광펜·설정을 파일로 저장하거나, 새 기기에서 복원할 수 있어요." />
         <Card className="p-4 space-y-3">
           <p className="text-sm text-slate-500 leading-snug">
@@ -189,6 +232,10 @@ export default function SettingsPage() {
             <span className="inline-flex items-center gap-2"><Icon name="info" size={16} className="text-brand" /> 앱 정보 · 라이선스</span>
             <Icon name="chevronRight" size={16} className="text-slate-400" />
           </Link>
+          <button type="button" onClick={() => { s.setOnboarded(false); nav('/onboarding'); }} className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left">
+            <span className="inline-flex items-center gap-2"><Icon name="refresh" size={16} className="text-brand" /> 온보딩 다시 보기</span>
+            <Icon name="chevronRight" size={16} className="text-slate-400" />
+          </button>
           <Link to="/help" className="flex items-center justify-between gap-3 px-4 py-3">
             <span className="inline-flex items-center gap-2"><Icon name="help" size={16} className="text-brand" /> 도움말</span>
             <Icon name="chevronRight" size={16} className="text-slate-400" />

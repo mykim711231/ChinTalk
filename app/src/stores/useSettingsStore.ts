@@ -14,6 +14,11 @@ type S = {
   blueLight: BlueLight;
   ttsRate: number;
   level: Level;
+  onboarded: boolean;
+  /** 설치 안내 "다시 보지 않기"/닫은 시각(ms), 7일 후 재표시 */
+  installDismissedAt: number;
+  setOnboarded: (v: boolean) => void;
+  dismissInstall: () => void;
   toggle: (k: ToggleKey) => void;
   setLevel: (l: Level) => void;
   setFontSize: (f: FontSize) => void;
@@ -31,6 +36,10 @@ export const useSettingsStore = create<S>()(
       blueLight: 0,
       ttsRate: 1,
       level: 1,
+      onboarded: false,
+      installDismissedAt: 0,
+      setOnboarded: (onboarded) => set({ onboarded }),
+      dismissInstall: () => set({ installDismissedAt: Date.now() }),
       toggle: (k) => set((s) => ({ [k]: !s[k] }) as Partial<S>),
       setLevel: (level) => set({ level }),
       setFontSize: (fontSize) => set({ fontSize }),

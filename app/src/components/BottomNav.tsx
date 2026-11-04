@@ -3,8 +3,9 @@ import Icon from './Icon';
 
 const items = [
   { to: '/', label: '홈', icon: 'home' },
-  { to: '/path', label: '학습 경로', icon: 'map' },
-  { to: '/help', label: '도움말', icon: 'help' },
+  { to: '/path', label: '경로', icon: 'map' },
+  { to: '/daily', label: '데일리', icon: 'timer' },
+  { to: '/passive', label: '듣기', icon: 'headphones' },
   { to: '/settings', label: '설정', icon: 'settings' },
 ];
 
