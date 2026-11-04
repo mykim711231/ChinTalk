@@ -1,0 +1,16 @@
+@tailwind base; @tailwind components; @tailwind utilities;
+:root { --fs: 1; }
+html { font-size: calc(16px * var(--fs)); }
+body { @apply bg-paper text-slate-900 antialiased; padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
+
+/* 청색광 차단 — html[data-bluelight] 단계(1~3)별로 호박색을 multiply 합성 (SMCB 동일 방식) */
+html[data-bluelight] body::after {
+  content: ""; position: fixed; inset: 0; z-index: 2147483647;
+  pointer-events: none; mix-blend-mode: multiply;
+}
+html[data-bluelight="1"] body::after { background: rgb(255 242 226); }
+html[data-bluelight="2"] body::after { background: rgb(255 230 204); }
+html[data-bluelight="3"] body::after { background: rgb(255 214 172); }
+
+:focus-visible { outline: 2px solid #0f766e; outline-offset: 2px; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
