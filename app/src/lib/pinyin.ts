@@ -14,16 +14,30 @@ for (const i of INITIALS) for (const f of FINALS) if (!(i && f === 'er')) SYL.ad
 const isHan = (c: string) => /[一-鿿㐀-䶿〇]/.test(c);
 const isLetter = (c: string) => /[A-Za-zāáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜüńňǹḿ]/.test(c);
 
-/** 병음 문자열 → 음절(성조 표기 유지) 배열 */
+/** 병음 문자열 → 음절(성조 표기 유지) 배열. 영문·숫자·이메일 등 비병음 토큰은 건너뛴다. */
 export function splitSyllables(pinyin: string): string[] {
+  // 이메일 주소(wang@mail.com 등)는 비병음이므로 제거
+  const cleaned = pinyin.replace(/[\w.+-]+@[\w.-]+/g, '');
   const out: string[] = [];
   let i = 0;
-  while (i < pinyin.length) {
-    if (!isLetter(pinyin[i])) { i++; continue; }
+  while (i < cleaned.length) {
+    if (!isLetter(cleaned[i])) { i++; continue; }
     let j = i;
-    while (j < pinyin.length && isLetter(pinyin[j])) j++;
-    const word = pinyin.slice(i, j);
+    while (j < cleaned.length && isLetter(cleaned[j])) j++;
+    const word = cleaned.slice(i, j);
     const plain = [...word].map(base).join('');
+    // 영어(비병음) 토큰 건너뛰기: 전부 대문자인 약어(AI·AA 등)이거나,
+    // 병음 음절로 온전히 분해되지 않는 경우(App 등)
+    const allUpper = /^[A-Z]+$/.test(word);
+    let fullyPinyin = true;
+    let p0 = 0;
+    while (p0 < plain.length) {
+      let len = 0;
+      for (let l = Math.min(6, plain.length - p0); l >= 1; l--) if (SYL.has(plain.slice(p0, p0 + l))) { len = l; break; }
+      if (!len) { fullyPinyin = false; break; }
+      p0 += len;
+    }
+    if (allUpper || !fullyPinyin) { i = j; continue; }
     let p = 0;
     while (p < word.length) {
       let len = 0;
