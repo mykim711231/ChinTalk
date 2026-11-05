@@ -8,6 +8,25 @@ import { splitSyllables } from '../src/lib/pinyin';
 import { Jieba } from '@node-rs/jieba';
 import { dict as jiebaDict } from '@node-rs/jieba/dict';
 const jieba = Jieba.withDict(jiebaDict);
+// 사용자 사전: jieba가 쪼개는 인사말·인명·지명·합성어를 한 단어로 고정
+const USER_WORDS = [
+  '早上好', '下午好', '晚上好', '明天见', '好久不见', '多多关照', '欢迎光临', '不客气', '不用谢', '没关系', '对不起',
+  '李明', '金美娜', '王芳', '金秀贤', '秀贤',
+  '首尔大学', '北京大学', '奥林匹克运动会', '奥林匹克',
+  '电话号码', '电子邮件', '圣诞节', '元旦',
+];
+// 동목구조(동사+목적어): jieba가 명사(n)로 오태깅해 "시간+명사"(九点见面)로 잘못 묶이는 것을 막음
+const USER_VERBS = [
+  '见面', '开会', '吃饭', '上课', '下课', '说话', '聊天', '散步', '唱歌', '跳舞', '游泳', '跑步', '打球',
+  '请客', '点菜', '拍照', '购物', '取钱', '存钱', '换钱', '挂号', '排队', '理发', '结账', '退房', '入住',
+  '登机', '起飞', '降落', '转机', '迷路', '问路', '租车', '还车', '加油', '签字', '订票', '回家', '出门', '打车', '开车', '爬山', '做饭', '逛街',
+];
+const USER_DICT = [
+  ...USER_WORDS.map(w => `${w} 100000`),
+  ...USER_VERBS.map(w => `${w} 100000`),
+].join('\n');
+jieba.loadDict(new TextEncoder().encode(USER_DICT));
+const VERB_LIKE = new Set(USER_VERBS);
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const SRC = join(ROOT, 'Doc', 'Markdown');
@@ -68,12 +87,19 @@ const NUM = new Set(['m', 'q']);
 const ASPECT = new Set(['ul', 'uz', 'ug']); // 了/着/过
 const DE = new Set(['uj']); // 的
 const PREP_LIKE = new Set('将把被在对向从给为于跟和与同往朝沿凭靠比按按照根据通过经过'.split(''));
+// 지시사: 뒤의 양사·명사와 묶음 (这批, 那个, 每个)
+const DEMO = new Set('这那此该每各某'.split(''));
+// 양사(量词) 글자: jieba가 号·个·点 등을 수사(m)로 태깅하므로 글자로 판별
+const MEASURE = new Set('点个位岁天年月号日时分秒次遍件张支只条双间部款台辆本杯碗瓶斤米元块毛科门路楼层节里'.split(''));
+const isMeasureWord = (w: string) => w.length >= 1 && w.length <= 2 && MEASURE.has(w[0]);
 
-function mergeable(pw: string, pt: string, nt: string): boolean {
+function mergeable(pw: string, pt: string, nw: string, nt: string): boolean {
   if (pt === 'p' || (pw.length === 1 && PREP_LIKE.has(pw))) {
     if (nt === 'r' || NOUN.has(nt) || NUM.has(nt) || DE.has(nt)) return true;
   }
-  if (NUM.has(pt) && (NUM.has(nt) || NOUN.has(nt))) return true;
+  if (NUM.has(pt) && NOUN.has(nt) && !VERB_LIKE.has(nw)) return true; // 수사+명사 (两个弟弟; 见面류 제외)
+  if (NUM.has(pt) && isMeasureWord(nw)) return true;      // 수사+양사 (二十五号)
+  if (DEMO.has(pw) && (NUM.has(nt) || NOUN.has(nt))) return true; // 지시사+양사·명사 (这批, 那个)
   if (pt === 'd' && (VERB.has(nt) || ADJ.has(nt))) return true;
   if (VERB.has(pt) && ASPECT.has(nt)) return true;
   if ((NOUN.has(pt) || pt === 'r' || ADJ.has(pt) || NUM.has(pt)) && DE.has(nt)) return true;
@@ -109,7 +135,7 @@ function segmentTokens(zh: string): { words: number[]; phrases: number[] } {
   let i = 0;
   while (i < hw.length) {
     let j = i;
-    while (j + 1 < hw.length && mergeable(hw[j].w, hw[j].tag, hw[j + 1].tag)) j++;
+    while (j + 1 < hw.length && mergeable(hw[j].w, hw[j].tag, hw[j + 1].w, hw[j + 1].tag)) j++;
     phrases.push(hw[j].end);
     i = j + 1;
   }
