@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { loadLesson, loadMeta } from '../lib/contentLoader';
 import { speak, speakAsync, stopSpeak } from '../lib/tts';
+import { splitChunks } from '../lib/pinyin';
 import ChunkCard from '../components/ChunkCard';
 import { useSettingsStore } from '../stores/useSettingsStore';
 import { useProgressStore } from '../stores/useProgressStore';
@@ -21,7 +22,7 @@ export default function LessonPage() {
   const { id = '' } = useParams();
   const [lesson, setLesson] = useState<Lesson | null | undefined>(undefined);
   const [tab, setTab] = useState<Tab>('text');
-  const { showZh, showPinyin, showKo, showBreaks, toggle } = useSettingsStore();
+  const { showZh, showPinyin, showKo, breakLevel, toggle, setBreakLevel } = useSettingsStore();
   const { done, markDone, setLast, mastered } = useProgressStore();
   const [meta, setMeta] = useState<LessonMeta[]>([]);
   const [playing, setPlaying] = useState(-1);
@@ -51,7 +52,17 @@ export default function LessonPage() {
     for (let i = 0; i < lesson.text.length; i++) {
       if (token.current !== my) return;
       setPlaying(i);
-      await speakAsync(lesson.text[i].zh);
+      if (breakLevel > 0) {
+        const chunks = splitChunks(lesson.text[i].zh, lesson.text[i].words ?? [], lesson.text[i].phrases ?? [], breakLevel as 1 | 2 | 3);
+        for (const c of chunks) {
+          if (token.current !== my) return;
+          await speakAsync(c);
+          if (token.current !== my) return;
+          await new Promise((r) => setTimeout(r, 400)); // 청크 간격
+        }
+      } else {
+        await speakAsync(lesson.text[i].zh);
+      }
       if (token.current !== my) return;
       await new Promise((r) => setTimeout(r, 1000)); // 자동 연속 재생 간격
     }
@@ -121,8 +132,8 @@ export default function LessonPage() {
         <button className={chip(showKo)} onClick={() => toggle('showKo')}>
           한글
         </button>
-        <button className={chip(showBreaks)} onClick={() => toggle('showBreaks')} aria-label="끊어 읽기 표시">
-          끊어읽기
+        <button className={chip(breakLevel > 0)} onClick={() => setBreakLevel(((breakLevel + 1) % 4) as 0 | 1 | 2 | 3)} aria-label="끊어 읽기">
+          {breakLevel === 0 ? '끊어읽기' : `끊어읽기 ${['단어', '구', '절'][breakLevel - 1]}`}
         </button>
       </div>
       <div className="flex gap-1 overflow-x-auto mb-3 border-b border-slate-200">

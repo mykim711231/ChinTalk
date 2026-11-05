@@ -4,14 +4,16 @@ import { persist } from 'zustand/middleware';
 export type FontSize = 'md' | 'lg' | 'xl';
 export type BlueLight = 0 | 1 | 2 | 3;
 type Level = 1 | 2 | 3 | 4;
-type ToggleKey = 'showZh' | 'showPinyin' | 'showKo' | 'showBreaks';
+type ToggleKey = 'showZh' | 'showPinyin' | 'showKo';
+/** 끊어 읽기 단위: 0=끔, 1=초급, 2=중급, 3=고급 */
+export type BreakLevel = 0 | 1 | 2 | 3;
 
 type S = {
   showZh: boolean;
   showPinyin: boolean;
   showKo: boolean;
-  /** 장문 끊어 읽기 표시(쉼표·모점 등 자리에 / 표시) */
-  showBreaks: boolean;
+  /** 끊어 읽기 단위(0=끔, 1=초급, 2=중급, 3=고급) */
+  breakLevel: BreakLevel;
   fontSize: FontSize;
   blueLight: BlueLight;
   ttsRate: number;
@@ -29,6 +31,7 @@ type S = {
   setFontSize: (f: FontSize) => void;
   setBlueLight: (b: BlueLight) => void;
   setTtsRate: (r: number) => void;
+  setBreakLevel: (l: BreakLevel) => void;
 };
 
 export const useSettingsStore = create<S>()(
@@ -37,7 +40,7 @@ export const useSettingsStore = create<S>()(
       showZh: true,
       showPinyin: true,
       showKo: true,
-      showBreaks: false,
+      breakLevel: 0,
       fontSize: 'md',
       blueLight: 0,
       ttsRate: 1,
@@ -53,15 +56,16 @@ export const useSettingsStore = create<S>()(
       setFontSize: (fontSize) => set({ fontSize }),
       setBlueLight: (blueLight) => set({ blueLight }),
       setTtsRate: (ttsRate) => set({ ttsRate }),
+      setBreakLevel: (breakLevel) => set({ breakLevel }),
     }),
     {
       name: 'chintalk-settings',
-      version: 2,
-      // v1 의 large(boolean) → fontSize
+      version: 3,
+      // v1 의 large(boolean) → fontSize, v2 의 showBreaks(boolean) → breakLevel
       migrate: (old) => {
         const o = (old ?? {}) as Record<string, unknown>;
-        const { large, ...rest } = o;
-        return { ...rest, fontSize: large ? 'lg' : 'md' } as unknown as S;
+        const { large, showBreaks, ...rest } = o;
+        return { ...rest, fontSize: large ? 'lg' : 'md', breakLevel: showBreaks ? 3 : 0 } as unknown as S;
       },
     },
   ),

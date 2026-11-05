@@ -124,9 +124,19 @@ export default function SettingsPage() {
           <Row label="병음 표시" description="한자 발음(pīnyīn)을 보여줍니다.">
             <Toggle label="병음 표시" on={s.showPinyin} onClick={() => { s.toggle('showPinyin'); showToast(s.showPinyin ? '병음을 숨겼어요.' : '병음을 다시 표시해요.'); }} />
           </Row>
-          <Row label="끊어 읽기 표시" description="긴 문장의 쉼표·모점 자리에 / 를 표시해 의미 단위로 끊어 읽도록 도와줘요.">
-            <Toggle label="끊어 읽기 표시" on={s.showBreaks} onClick={() => s.toggle('showBreaks')} />
-          </Row>
+        <Row label="끊어 읽기" description="문장을 문법 단위로 끊어 / 로 표시해요. 단어→구→절 순으로 덩어리가 커져요." stack>
+          <Segmented<string>
+            grid
+            value={String(s.breakLevel)}
+            options={[
+              { v: '0', l: '끔' },
+              { v: '1', l: '단어 (分词)' },
+              { v: '2', l: '구 (문법 묶음)' },
+              { v: '3', l: '절 (구두점)' },
+            ]}
+            onChange={(v) => { s.setBreakLevel(Number(v) as 0 | 1 | 2 | 3); showToast('끊어 읽기를 바꿨어요.'); }}
+          />
+        </Row>
           <Row label="한글 표시" description="한국어 뜻을 함께 보여줍니다.">
             <Toggle label="한글 표시" on={s.showKo} onClick={() => { s.toggle('showKo'); showToast(s.showKo ? '한글 뜻을 숨겼어요.' : '한글 뜻을 다시 표시해요.'); }} />
           </Row>

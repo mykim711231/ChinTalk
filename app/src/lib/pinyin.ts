@@ -12,7 +12,7 @@ const SYL = new Set<string>(['r', 'n', 'ng', 'm', 'hm']);
 for (const i of INITIALS) for (const f of FINALS) if (!(i && f === 'er')) SYL.add(i + f);
 
 const isHan = (c: string) => /[一-鿿㐀-䶿〇]/.test(c);
-const isLetter = (c: string) => /[A-Za-zāáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜüńňǹḿ]/.test(c);
+const isLetter = (c: string) => /[a-zāáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜüńňǹḿ]/.test(c.toLowerCase());
 
 /** 병음 문자열 → 음절(성조 표기 유지) 배열. 영문·숫자·이메일 등 비병음 토큰은 건너뛴다. */
 export function splitSyllables(pinyin: string): string[] {
@@ -67,3 +67,79 @@ export function alignChars(zh: string, pinyin: string): CharPy[] | null {
   return chars.map((ch) => (isHan(ch) ? { ch, py: syl[k++] } : { ch }));
 }
 export { isHan };
+
+const NUM = new Set('零一二三四五六七八九十百千万两几'.split(''));
+const MEASURE = new Set('点个位岁天年月号日时分秒次遍件张支只条双间部款台辆本杯碗瓶斤米元块毛科门路楼层节里'.split(''));
+
+/** 병음 띄어쓰기 + 숫자·양사 병합으로 각 단어의 끝 인덱스(배타)를 반환 */
+export function wordEnds(zh: string, pinyin: string): number[] {
+  const chars = [...zh];
+  const words: { zh: string; end: number }[] = [];
+  let hi = 0;
+  for (const tok of pinyin.trim().split(/\s+/).filter(Boolean)) {
+    const syl = splitSyllables(tok);
+    if (!syl.length) continue;
+    let w = '';
+    let taken = 0;
+    while (hi < chars.length && taken < syl.length) {
+      const c = chars[hi];
+      if (isHan(c)) { w += c; taken++; }
+      hi++;
+    }
+    if (w) words.push({ zh: w, end: hi });
+  }
+  // 연속 숫자 병합 (二零零五 → 한 덩어리)
+  const merged: { zh: string; end: number }[] = [];
+  for (const w of words) {
+    const isNum = [...w.zh].every(c => NUM.has(c));
+    if (isNum && merged.length && [...merged[merged.length - 1].zh].every(c => NUM.has(c))) {
+      const prev = merged[merged.length - 1];
+      prev.zh += w.zh;
+      prev.end = w.end;
+    } else {
+      merged.push({ zh: w.zh, end: w.end });
+    }
+  }
+  // 숫자 + 양사 병합 (九+点 → 九点)
+  const ends: number[] = [];
+  for (let i = 0; i < merged.length; i++) {
+    const w = merged[i];
+    const isNum = [...w.zh].every(c => NUM.has(c));
+    if (isNum && i + 1 < merged.length) {
+      const n = merged[i + 1];
+      const isMeasure = [...n.zh].length <= 2 && [...n.zh].every(c => MEASURE.has(c));
+      if (isMeasure) { ends.push(n.end); i++; continue; }
+    }
+    ends.push(w.end);
+  }
+  return ends;
+}
+
+/**
+ * 끊어 읽기 위치(해당 글자 뒤에 / 표시) 계산. words=단어 경계, phrases=구 경계(끝 인덱스, 배타).
+ * level 1=단어, 2=구, 3=절(구두점)
+ */
+export function breakPositions(zh: string, words: number[], phrases: number[], level: 1 | 2 | 3): Set<number> {
+  const set = new Set<number>();
+  const chars = [...zh];
+  if (level === 3) {
+    chars.forEach((c, i) => { if (/[，、；：,;:]/.test(c)) set.add(i); });
+    return set;
+  }
+  const ends = level === 1 ? words : phrases;
+  for (const e of ends) if (e > 0 && e < chars.length) set.add(e - 1);
+  return set;
+}
+
+/** 문장을 끊어 읽기 단위(chunk)로 나눈다. level 1=단어, 2=구, 3=절 */
+export function splitChunks(zh: string, words: number[], phrases: number[], level: 1 | 2 | 3): string[] {
+  const chars = [...zh];
+  const breaks = breakPositions(zh, words, phrases, level);
+  const chunks: string[] = [];
+  let start = 0;
+  chars.forEach((_, i) => {
+    if (breaks.has(i)) { chunks.push(chars.slice(start, i + 1).join('')); start = i + 1; }
+  });
+  if (start < chars.length) chunks.push(chars.slice(start).join(''));
+  return chunks;
+}

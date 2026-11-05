@@ -14,6 +14,18 @@ const SRC = join(ROOT, 'Doc', 'Markdown');
 const OUT = join(ROOT, 'app', 'public', 'data');
 mkdirSync(OUT, { recursive: true });
 
+// 교재 주요 단어(### N. 한자 / 병음 …)를 jieba 사용자 사전에 넣어 교재의 단어 단위를 유지한다
+{
+  const ws = new Set<string>();
+  for (let v = 1; v <= 8; v++) {
+    const d = join(SRC, `vol${v}`);
+    for (const f of readdirSync(d).filter(x => x.endsWith('.md'))) {
+      for (const m of readFileSync(join(d, f), 'utf8').matchAll(/^###\s*\d+\.\s*([一-鿿]{2,6})\s*\//gm)) ws.add(m[1]);
+    }
+  }
+  jieba.loadDict(Buffer.from([...ws].map(w => `${w} 100000`).join('\n')));
+}
+
 const levelOf = (vol: number) => (Math.ceil(vol / 2) as 1 | 2 | 3 | 4);
 const sha = (s: string) => createHash('sha1').update(s).digest('hex').slice(0, 8);
 const SPLIT = /／/;
@@ -71,13 +83,25 @@ function mergeable(pw: string, pt: string, nt: string): boolean {
 
 /** jieba 분절(단어) + 품사 기반 구(phrase) 묶음 → 끝 인덱스(배타) 배열 */
 function segmentTokens(zh: string): { words: number[]; phrases: number[] } {
-  const tokens = jieba.tag(zh) as { word: string; tag: string }[];
+  const raw = jieba.tag(zh) as { word: string; tag: string }[];
+  // 儿화: '点|儿发' 처럼 儿 이 다음 토큰 앞에 붙으면 앞 토큰 뒤로 옮긴다
+  const tokens: { word: string; tag: string }[] = [];
+  for (const t of raw) {
+    if (t.word.length > 1 && t.word[0] === '儿' && tokens.length) {
+      tokens[tokens.length - 1] = { ...tokens[tokens.length - 1], word: tokens[tokens.length - 1].word + '儿' };
+      tokens.push({ word: t.word.slice(1), tag: t.tag });
+    } else tokens.push(t);
+  }
   const hw: { w: string; end: number; tag: string }[] = [];
   let hi = 0;
   for (const t of tokens) {
-    const n = [...t.word].filter(isHanChar).length;
-    if (!n) continue;
-    hi += n;
+    // 인덱스는 구두점 포함 글자 기준(앱의 splitChunks/breakPositions 와 동일)
+    hi += [...t.word].length;
+    if (![...t.word].some(isHanChar)) {
+      // 구두점은 앞 단어에 붙여 '，' 앞에서만 끊기게 한다
+      if (hw.length && /^[，。！？、；：,.!?;:”’）)…—]+$/.test(t.word)) hw[hw.length - 1].end = hi;
+      continue;
+    }
     hw.push({ w: t.word, end: hi, tag: t.tag });
   }
   const words = hw.map(x => x.end);
