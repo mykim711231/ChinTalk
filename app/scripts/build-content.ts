@@ -4,6 +4,10 @@ import { createHash } from 'node:crypto';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Lesson, Verse, Chunk, DialogSection, LessonMeta } from '../src/types/lesson';
+import { splitSyllables } from '../src/lib/pinyin';
+import { Jieba } from '@node-rs/jieba';
+import { dict as jiebaDict } from '@node-rs/jieba/dict';
+const jieba = Jieba.withDict(jiebaDict);
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const SRC = join(ROOT, 'Doc', 'Markdown');
@@ -20,7 +24,72 @@ function makeVerse(lessonId: string, zh: string, pinyin: string, ko: string): Ve
   const chunks: Chunk[] = aligned
     ? z.map((zz, i) => ({ id: `${lessonId}_${sha(zz)}`, zh: zz.trim(), pinyin: p[i].trim(), ko: k[i].trim() }))
     : [{ id: `${lessonId}_${sha(zh)}`, zh: zh.replace(/／/g, ''), pinyin: pinyin.replace(/／/g, ''), ko: ko.replace(/／/g, '') }];
-  return { zh: zh.replace(/／/g, ''), pinyin: pinyin.replace(/／/g, ''), ko: ko.replace(/／/g, ''), chunks };
+  const seg = segmentTokens(zh.replace(/／/g, ''));
+  return { zh: zh.replace(/／/g, ''), pinyin: pinyin.replace(/／/g, ''), ko: ko.replace(/／/g, ''), chunks, words: seg.words, phrases: seg.phrases };
+}
+
+/** 한자 문장 + 단어 단위 병음 → 단어 목록. 병음 띄어쓰기를 단어 경계로 사용한다. */
+function extractWords(zh: string, pinyin: string): { zh: string; py: string }[] {
+  const out: { zh: string; py: string }[] = [];
+  const zhChars = [...zh.replace(/／/g, '')];
+  let hi = 0;
+  for (const tok of pinyin.replace(/／/g, ' ').trim().split(/\s+/).filter(Boolean)) {
+    const syl = splitSyllables(tok);
+    if (!syl.length) continue;
+    let w = '';
+    let taken = 0;
+    while (hi < zhChars.length && taken < syl.length) {
+      const c = zhChars[hi++];
+      if (/[\u4e00-\u9fff]/.test(c)) { w += c; taken++; }
+    }
+    if (w) out.push({ zh: w, py: syl.join('') });
+  }
+  return out;
+}
+
+// ── 형태소 분절 + 구(phrase) 묶음 ──
+const isHanChar = (c: string) => /[\u4e00-\u9fff]/.test(c);
+const NOUN = new Set(['n', 'nr', 'ns', 'nt', 'nz', 'ng', 'an']);
+const VERB = new Set(['v', 'vd', 'vn']);
+const ADJ = new Set(['a', 'ad']);
+const NUM = new Set(['m', 'q']);
+const ASPECT = new Set(['ul', 'uz', 'ug']); // 了/着/过
+const DE = new Set(['uj']); // 的
+const PREP_LIKE = new Set('将把被在对向从给为于跟和与同往朝沿凭靠比按按照根据通过经过'.split(''));
+
+function mergeable(pw: string, pt: string, nt: string): boolean {
+  if (pt === 'p' || (pw.length === 1 && PREP_LIKE.has(pw))) {
+    if (nt === 'r' || NOUN.has(nt) || NUM.has(nt) || DE.has(nt)) return true;
+  }
+  if (NUM.has(pt) && (NUM.has(nt) || NOUN.has(nt))) return true;
+  if (pt === 'd' && (VERB.has(nt) || ADJ.has(nt))) return true;
+  if (VERB.has(pt) && ASPECT.has(nt)) return true;
+  if ((NOUN.has(pt) || pt === 'r' || ADJ.has(pt) || NUM.has(pt)) && DE.has(nt)) return true;
+  if (DE.has(pt) && (NOUN.has(nt) || nt === 'r')) return true;
+  return false;
+}
+
+/** jieba 분절(단어) + 품사 기반 구(phrase) 묶음 → 끝 인덱스(배타) 배열 */
+function segmentTokens(zh: string): { words: number[]; phrases: number[] } {
+  const tokens = jieba.tag(zh) as { word: string; tag: string }[];
+  const hw: { w: string; end: number; tag: string }[] = [];
+  let hi = 0;
+  for (const t of tokens) {
+    const n = [...t.word].filter(isHanChar).length;
+    if (!n) continue;
+    hi += n;
+    hw.push({ w: t.word, end: hi, tag: t.tag });
+  }
+  const words = hw.map(x => x.end);
+  const phrases: number[] = [];
+  let i = 0;
+  while (i < hw.length) {
+    let j = i;
+    while (j + 1 < hw.length && mergeable(hw[j].w, hw[j].tag, hw[j + 1].tag)) j++;
+    phrases.push(hw[j].end);
+    i = j + 1;
+  }
+  return { words, phrases };
 }
 
 function splitSections(body: string) {
@@ -116,6 +185,13 @@ for (let vol = 1; vol <= 8; vol++) {
   }
   for (const l of lessons) for (const g of l.related) for (const r of g.rows) {
     if (r.zh && r.zh.length <= 8 && !dict[r.zh]) dict[r.zh] = { p: r.pinyin, ko: r.ko, l: l.id };
+  }
+  // 문장(본문·회화)에 등장하는 단어도 사전에 추가(병음만, 뜻은 추후 CC-CEDICT로 보강)
+  for (const l of lessons) {
+    const verses = [...l.text, ...l.dialogs.flatMap(d => d.turns.map(t => t.verse))];
+    for (const v of verses) for (const w of extractWords(v.zh, v.pinyin)) {
+      if (!dict[w.zh]) dict[w.zh] = { p: w.py, ko: '', l: l.id };
+    }
   }
   for (const l of lessons) meta.push({ id: l.id, vol: l.vol, no: l.no, level: l.level, titleZh: l.titleZh, titlePinyin: l.titlePinyin, titleKo: l.titleKo });
   console.log(`vol${vol}: ${lessons.length} lessons`);

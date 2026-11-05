@@ -49,7 +49,7 @@ export default function WordSheet() {
               <span className="text-sm text-slate-600">{entry.p}</span>
               {entry.pos && <span className="text-xs text-slate-500">· {entry.pos}</span>}
             </div>
-            <p className="mt-1 text-sm text-slate-800">{entry.ko}</p>
+            <p className="mt-1 text-sm text-slate-800">{entry.ko || '뜻 준비 중이에요 — 병음으로 발음을 확인해 보세요.'}</p>
             {entry.h && <p className="mt-1 text-xs text-slate-500">{entry.h}</p>}
             {entry.ex && (
               <p className="mt-1 text-xs text-slate-600">
