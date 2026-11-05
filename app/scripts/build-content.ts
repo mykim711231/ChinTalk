@@ -10,10 +10,25 @@ import { dict as jiebaDict } from '@node-rs/jieba/dict';
 const jieba = Jieba.withDict(jiebaDict);
 // 사용자 사전: jieba가 쪼개는 인사말·인명·지명·합성어를 한 단어로 고정
 const USER_WORDS = [
+  // 인사말·숙어
   '早上好', '下午好', '晚上好', '明天见', '好久不见', '多多关照', '欢迎光临', '不客气', '不用谢', '没关系', '对不起',
-  '李明', '金美娜', '王芳', '金秀贤', '秀贤',
-  '首尔大学', '北京大学', '奥林匹克运动会', '奥林匹克',
-  '电话号码', '电子邮件', '圣诞节', '元旦',
+  '没问题', '听起来',
+  // 요일 (일관성)
+  '星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日', '星期天',
+  // 인명·직함
+  '李明', '金美娜', '王芳', '金秀贤', '秀贤', '王强', '小王', '小李', '小张', '王经理', '张先生',
+  // 지명·기관·고유명사
+  '首尔大学', '北京大学', '奥林匹克运动会', '奥林匹克', '阳光酒店', '宫保鸡丁', '鸡丁',
+  // 국민
+  '中国人', '韩国人', '日本人', '美国人',
+  // 합성어·전문용어
+  '电话号码', '电子邮件', '电子邮箱', '邮箱地址', '联系方式', '圣诞节', '元旦',
+  '儿化音', '北京话', '双音节词', '拍照片', '照片',
+  '竞品', '网红', '带货', '直播带货', '年化', '云计算', '扎心', '打工人',
+  '线上', '下一步', '上下班', '入行', '限行', '年会', '劝菜', '课外班', '受教育',
+  '全社会', '移动端', '信息时代', '新产品', '贵公司', '每一位', '投诉率', '倾向于', '一开始',
+  '成人票', '安检机', '高铁票', '短视频', '两室一厅',
+  '下一班', '电子邮箱地址',
 ];
 // 동목구조(동사+목적어): jieba가 명사(n)로 오태깅해 "시간+명사"(九点见面)로 잘못 묶이는 것을 막음
 const USER_VERBS = [
@@ -86,19 +101,22 @@ const ADJ = new Set(['a', 'ad']);
 const NUM = new Set(['m', 'q']);
 const ASPECT = new Set(['ul', 'uz', 'ug']); // 了/着/过
 const DE = new Set(['uj']); // 的
-const PREP_LIKE = new Set('将把被在对向从给为于跟和与同往朝沿凭靠比按按照根据通过经过'.split(''));
+const PREP_LIKE = new Set('将把被在对向从给为于往朝沿凭靠比按按照根据通过经过'.split(''));
 // 지시사: 뒤의 양사·명사와 묶음 (这批, 那个, 每个)
 const DEMO = new Set('这那此该每各某'.split(''));
 // 양사(量词) 글자: jieba가 号·个·点 등을 수사(m)로 태깅하므로 글자로 판별
 const MEASURE = new Set('点个位岁天年月号日时分秒次遍件张支只条双间部款台辆本杯碗瓶斤米元块毛科门路楼层节里'.split(''));
 const isMeasureWord = (w: string) => w.length >= 1 && w.length <= 2 && MEASURE.has(w[0]);
+// 동량보어(동사 빈도): 동사 뒤에 붙고, 뒤 명사와는 병합하지 않음 (汇报一下)
+const VERB_MEASURE = new Set(['一下', '一遍', '一次', '一回', '一趟', '一番']);
 
 function mergeable(pw: string, pt: string, nw: string, nt: string): boolean {
   if (pt === 'p' || (pw.length === 1 && PREP_LIKE.has(pw))) {
     if (nt === 'r' || NOUN.has(nt) || NUM.has(nt) || DE.has(nt)) return true;
   }
-  if (NUM.has(pt) && NOUN.has(nt) && !VERB_LIKE.has(nw)) return true; // 수사+명사 (两个弟弟; 见面류 제외)
+  if (NUM.has(pt) && NOUN.has(nt) && !VERB_LIKE.has(nw) && !VERB_MEASURE.has(pw)) return true; // 수사+명사 (两个弟弟; 见面·一下 제외)
   if (NUM.has(pt) && isMeasureWord(nw)) return true;      // 수사+양사 (二十五号)
+  if (VERB.has(pt) && VERB_MEASURE.has(nw)) return true;  // 동사+동량보어 (汇报一下)
   if (DEMO.has(pw) && (NUM.has(nt) || NOUN.has(nt))) return true; // 지시사+양사·명사 (这批, 那个)
   if (pt === 'd' && (VERB.has(nt) || ADJ.has(nt))) return true;
   if (VERB.has(pt) && ASPECT.has(nt)) return true;
