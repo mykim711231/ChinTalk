@@ -29,6 +29,7 @@ const USER_WORDS = [
   '全社会', '移动端', '信息时代', '新产品', '贵公司', '每一位', '投诉率', '倾向于', '一开始',
   '成人票', '安检机', '高铁票', '短视频', '两室一厅',
   '下一班', '电子邮箱地址',
+  '合同草案', '固定说法', '季度绩效考核', '绩效考核', '论据支撑', '装运日期', '核心卖点', '装运', '说服力',
 ];
 // 동목구조(동사+목적어): jieba가 명사(n)로 오태깅해 "시간+명사"(九点见面)로 잘못 묶이는 것을 막음
 const USER_VERBS = [
@@ -109,6 +110,10 @@ const MEASURE = new Set('点个位岁天年月号日时分秒次遍件张支只�
 const isMeasureWord = (w: string) => w.length >= 1 && w.length <= 2 && MEASURE.has(w[0]);
 // 동량보어(동사 빈도): 동사 뒤에 붙고, 뒤 명사와는 병합하지 않음 (汇报一下)
 const VERB_MEASURE = new Set(['一下', '一遍', '一次', '一回', '一趟', '一番']);
+// 정도부사(형용사·동사에 긴밀히 붙음) — 문장부사(就·又·也·都·还 등)는 붙지 않음
+const DEGREE_ADV = new Set(['很', '非常', '太', '十分', '更', '最', '比较', '相当', '特别', '挺', '格外', '尤其', '更加', '稍微', '有点儿', '有点']);
+// 결과보어(동사 뒤에 붙어 결과를 나타냄)
+const RESULT_COMP = new Set(['完', '好', '到', '见', '懂', '会', '开', '住', '清', '清楚', '明白', '晚', '早', '错', '对', '通', '熟', '成', '掉', '动', '满', '断', '坏']);
 
 function mergeable(pw: string, pt: string, nw: string, nt: string): boolean {
   if (pt === 'p' || (pw.length === 1 && PREP_LIKE.has(pw))) {
@@ -117,8 +122,9 @@ function mergeable(pw: string, pt: string, nw: string, nt: string): boolean {
   if (NUM.has(pt) && NOUN.has(nt) && !VERB_LIKE.has(nw) && !VERB_MEASURE.has(pw)) return true; // 수사+명사 (两个弟弟; 见面·一下 제외)
   if (NUM.has(pt) && isMeasureWord(nw)) return true;      // 수사+양사 (二十五号)
   if (VERB.has(pt) && VERB_MEASURE.has(nw)) return true;  // 동사+동량보어 (汇报一下)
+  if (VERB.has(pt) && RESULT_COMP.has(nw)) return true;   // 동사+결과보어 (来晚, 做完, 听懂)
   if (DEMO.has(pw) && (NUM.has(nt) || NOUN.has(nt))) return true; // 지시사+양사·명사 (这批, 那个)
-  if (pt === 'd' && (VERB.has(nt) || ADJ.has(nt))) return true;
+  if (DEGREE_ADV.has(pw) && (VERB.has(nt) || ADJ.has(nt))) return true; // 정도부사+동사·형용사 (非常吸引; jieba가 很을 zg로 태깅해도 단어로 판별)
   if (VERB.has(pt) && ASPECT.has(nt)) return true;
   if ((NOUN.has(pt) || pt === 'r' || ADJ.has(pt) || NUM.has(pt)) && DE.has(nt)) return true;
   if (DE.has(pt) && (NOUN.has(nt) || nt === 'r')) return true;
