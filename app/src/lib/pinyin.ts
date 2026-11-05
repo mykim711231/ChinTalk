@@ -28,7 +28,7 @@ export function splitSyllables(pinyin: string): string[] {
     const plain = [...word].map(base).join('');
     // 영어(비병음) 토큰 건너뛰기: 전부 대문자인 약어(AI·AA 등)이거나,
     // 병음 음절로 온전히 분해되지 않는 경우(App 등)
-    const allUpper = /^[A-Z]+$/.test(word);
+    const allUpper = /^[A-Z]{2,}$/.test(word); // 한 글자 대문자(A=啊 등)는 병음일 수 있으므로 제외
     let fullyPinyin = true;
     let p0 = 0;
     while (p0 < plain.length) {
