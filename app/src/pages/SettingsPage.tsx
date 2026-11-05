@@ -124,6 +124,9 @@ export default function SettingsPage() {
           <Row label="병음 표시" description="한자 발음(pīnyīn)을 보여줍니다.">
             <Toggle label="병음 표시" on={s.showPinyin} onClick={() => { s.toggle('showPinyin'); showToast(s.showPinyin ? '병음을 숨겼어요.' : '병음을 다시 표시해요.'); }} />
           </Row>
+          <Row label="끊어 읽기 표시" description="긴 문장의 쉼표·모점 자리에 / 를 표시해 의미 단위로 끊어 읽도록 도와줘요.">
+            <Toggle label="끊어 읽기 표시" on={s.showBreaks} onClick={() => s.toggle('showBreaks')} />
+          </Row>
           <Row label="한글 표시" description="한국어 뜻을 함께 보여줍니다.">
             <Toggle label="한글 표시" on={s.showKo} onClick={() => { s.toggle('showKo'); showToast(s.showKo ? '한글 뜻을 숨겼어요.' : '한글 뜻을 다시 표시해요.'); }} />
           </Row>

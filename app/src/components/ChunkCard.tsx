@@ -11,7 +11,7 @@ const DOT: Record<Color, string> = { green: 'bg-green-600', yellow: 'bg-yellow-5
 const LABEL: Record<Color, string> = { green: '바로 이해', yellow: '헷갈림', red: '완전 생소' };
 
 export default function ChunkCard({ verse, speaker }: { verse: Verse; speaker?: string }) {
-  const { showZh, showPinyin, showKo } = useSettingsStore();
+  const { showZh, showPinyin, showKo, showBreaks } = useSettingsStore();
   const { marks, cycle } = useHighlightStore();
   const key = verse.chunks[0]?.id ?? verse.zh;
   const aligned = !!alignChars(verse.zh, verse.pinyin);
@@ -30,7 +30,7 @@ export default function ChunkCard({ verse, speaker }: { verse: Verse; speaker?: 
           {speaker && <span className="text-xs text-slate-500 mr-1">{speaker}</span>}
           {showZh && (
             <div className={`text-xl ${showPinyin && aligned ? 'leading-[2.3]' : 'leading-snug'}`}>
-              <HanText zh={verse.zh} pinyin={verse.pinyin} ruby={showPinyin} />
+              <HanText zh={verse.zh} pinyin={verse.pinyin} ruby={showPinyin} breaks={showBreaks} />
             </div>
           )}
           {showPinyin && (!showZh || !aligned) && <div className="text-sm text-slate-600">{verse.pinyin}</div>}

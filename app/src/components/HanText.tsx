@@ -2,7 +2,7 @@ import { alignChars } from '../lib/pinyin';
 import { useWordSheet } from '../stores/useWordSheet';
 
 /** 한자 본문. 글자를 탭하면 단어장 시트가 열리고, pinyin=true 면 글자 위에 병음(ruby)을 단다. */
-export default function HanText({ zh, pinyin, ruby, className }: { zh: string; pinyin: string; ruby: boolean; className?: string }) {
+export default function HanText({ zh, pinyin, ruby, breaks, className }: { zh: string; pinyin: string; ruby: boolean; breaks?: boolean; className?: string }) {
   const open = useWordSheet((s) => s.open);
   const aligned = alignChars(zh, pinyin);
   const chars = aligned ?? [...zh].map((ch) => ({ ch } as { ch: string; py?: string }));
@@ -10,7 +10,10 @@ export default function HanText({ zh, pinyin, ruby, className }: { zh: string; p
     <span className={className}>
       {chars.map((c, i) => {
         const han = /[一-鿿㐀-䶿]/.test(c.ch);
-        if (!han) return <span key={i}>{c.ch}</span>;
+        if (!han) {
+          const brk = breaks && /[，、；：,;:]/.test(c.ch) && i < chars.length - 1;
+          return <span key={i}>{c.ch}{brk && <span aria-hidden className="mx-1 font-bold text-brand">/</span>}</span>;
+        }
         return (
           <ruby
             key={i}

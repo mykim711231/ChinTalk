@@ -21,7 +21,7 @@ export default function LessonPage() {
   const { id = '' } = useParams();
   const [lesson, setLesson] = useState<Lesson | null | undefined>(undefined);
   const [tab, setTab] = useState<Tab>('text');
-  const { showZh, showPinyin, showKo, toggle } = useSettingsStore();
+  const { showZh, showPinyin, showKo, showBreaks, toggle } = useSettingsStore();
   const { done, markDone, setLast, mastered } = useProgressStore();
   const [meta, setMeta] = useState<LessonMeta[]>([]);
   const [playing, setPlaying] = useState(-1);
@@ -120,6 +120,9 @@ export default function LessonPage() {
         </button>
         <button className={chip(showKo)} onClick={() => toggle('showKo')}>
           한글
+        </button>
+        <button className={chip(showBreaks)} onClick={() => toggle('showBreaks')} aria-label="끊어 읽기 표시">
+          끊어읽기
         </button>
       </div>
       <div className="flex gap-1 overflow-x-auto mb-3 border-b border-slate-200">

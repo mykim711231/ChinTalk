@@ -4,12 +4,14 @@ import { persist } from 'zustand/middleware';
 export type FontSize = 'md' | 'lg' | 'xl';
 export type BlueLight = 0 | 1 | 2 | 3;
 type Level = 1 | 2 | 3 | 4;
-type ToggleKey = 'showZh' | 'showPinyin' | 'showKo';
+type ToggleKey = 'showZh' | 'showPinyin' | 'showKo' | 'showBreaks';
 
 type S = {
   showZh: boolean;
   showPinyin: boolean;
   showKo: boolean;
+  /** 장문 끊어 읽기 표시(쉼표·모점 등 자리에 / 표시) */
+  showBreaks: boolean;
   fontSize: FontSize;
   blueLight: BlueLight;
   ttsRate: number;
@@ -35,6 +37,7 @@ export const useSettingsStore = create<S>()(
       showZh: true,
       showPinyin: true,
       showKo: true,
+      showBreaks: false,
       fontSize: 'md',
       blueLight: 0,
       ttsRate: 1,
