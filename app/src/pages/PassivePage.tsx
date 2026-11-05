@@ -61,6 +61,12 @@ export default function PassivePage() {
         if (token.current !== my) return;
         if (await playMp3Only(v.zh, rate)) played++;
         if (token.current !== my) return;
+        if (useSettingsStore.getState().koVoice) {
+          await new Promise((r) => setTimeout(r, 300));
+          if (token.current !== my) return;
+          await playMp3Only(v.ko, 1, 'ko');
+          if (token.current !== my) return;
+        }
         await new Promise((r) => setTimeout(r, 700));
       }
       if (token.current !== my) return;

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { loadLesson } from '../lib/contentLoader';
-import { speak, speakAsync, stopSpeak } from '../lib/tts';
+import { speak, speakAsync, speakKoIfOn, stopSpeak } from '../lib/tts';
 import { useProgressStore } from '../stores/useProgressStore';
 import { useSettingsStore } from '../stores/useSettingsStore';
 import ChunkCard from '../components/ChunkCard';
@@ -24,6 +24,8 @@ function usePlayAll(lesson: Lesson | null) {
       if (token.current !== my) return;
       setPlaying(i);
       await speakAsync(lesson.text[i].zh);
+      if (token.current !== my) return;
+      await speakKoIfOn(lesson.text[i].ko);
       if (token.current !== my) return;
       await new Promise((r) => setTimeout(r, 400));
     }

@@ -160,6 +160,9 @@ export default function SettingsPage() {
               onChange={(e) => s.setTtsRate(Number(e.target.value))}
             />
           </Row>
+          <Row label="한글 음성" description="10분 데일리·편하게 듣기·마스터리에서 중국어 다음에 한글 번역을 읽어 줘요.">
+            <Toggle label="한글 음성" on={s.koVoice} onClick={() => { s.setKoVoice(!s.koVoice); showToast(s.koVoice ? '한글 음성을 껐어요.' : '한글 음성을 켰어요.'); }} />
+          </Row>
           <Row label="속도 확인">
             <button type="button" className={pill} onClick={() => void speak('你好，欢迎学习中文。', s.ttsRate)}>
               <Icon name="speaker" size={16} /> 들어보기
@@ -169,7 +172,7 @@ export default function SettingsPage() {
       </section>
 
       <section>
-        <SectionHeader title="오프라인 음원" subtitle="권 단위로 받아 두면 인터넷 없이도 재생돼요. (권당 약 7MB, Wi-Fi 권장)" />
+        <SectionHeader title="오프라인 음원" subtitle="권 단위로 받아 두면 인터넷 없이도 재생돼요. (권당 약 10~15MB, Wi-Fi 권장)" />
         <Card className="divide-y divide-slate-200">
           {[1, 2, 3, 4, 5, 6, 7, 8].map((v) => <VolDownload key={v} vol={v} />)}
         </Card>

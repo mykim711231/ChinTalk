@@ -1,6 +1,6 @@
 // vol 단위 mp3 오프라인 다운로드 (§6.9). Workbox 런타임 캐시 'tts-audio' 에 같은 URL 로 저장한다.
 import { loadVol } from './contentLoader';
-import { mp3Url } from './tts';
+import { koMp3Url, mp3Url } from './tts';
 import type { Lesson } from '../types/lesson';
 
 export const TTS_CACHE = 'tts-audio';
@@ -18,7 +18,11 @@ function texts(lessons: Lesson[]): string[] {
 }
 
 export async function volUrls(vol: number): Promise<string[]> {
-  const urls = await Promise.all(texts(await loadVol(vol)).map((t) => mp3Url(t)));
+  const lessons = await loadVol(vol);
+  const urls = await Promise.all([
+    ...texts(lessons).map((t) => mp3Url(t)),
+    ...lessons.flatMap((l) => l.text.map((v) => koMp3Url(v.ko))),
+  ]);
   return [...new Set(urls.filter((u): u is string => !!u))];
 }
 

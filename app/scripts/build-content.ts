@@ -100,13 +100,27 @@ function parseLesson(vol: number, file: string, text: string): Lesson {
 }
 
 const meta: LessonMeta[] = [];
+// 단어장: 각 과 '단어' 섹션 + 관련 어휘 행에서 만든다 (외부 사전 미사용 → 라이선스 이슈 없음)
+type DictEntry = { p: string; pos?: string; ko: string; h?: string; ex?: [string, string, string]; l: string };
+const dict: Record<string, DictEntry> = {};
 for (let vol = 1; vol <= 8; vol++) {
   const dir = join(SRC, `vol${vol}`);
   const files = readdirSync(dir).filter(f => f.endsWith('.md')).sort();
   const lessons = files.map(f => parseLesson(vol, f, readFileSync(join(dir, f), 'utf8')));
   writeFileSync(join(OUT, `lessons-vol${vol}.json`), JSON.stringify(lessons));
+  for (const l of lessons) {
+    for (const w of l.vocab) {
+      if (!w.zh || dict[w.zh]) continue;
+      dict[w.zh] = { p: w.pinyin, pos: w.pos, ko: w.ko, h: w.hanjaNote, ex: w.exZh ? [w.exZh, w.exPinyin ?? '', w.exKo ?? ''] : undefined, l: l.id };
+    }
+  }
+  for (const l of lessons) for (const g of l.related) for (const r of g.rows) {
+    if (r.zh && r.zh.length <= 8 && !dict[r.zh]) dict[r.zh] = { p: r.pinyin, ko: r.ko, l: l.id };
+  }
   for (const l of lessons) meta.push({ id: l.id, vol: l.vol, no: l.no, level: l.level, titleZh: l.titleZh, titlePinyin: l.titlePinyin, titleKo: l.titleKo });
   console.log(`vol${vol}: ${lessons.length} lessons`);
 }
+writeFileSync(join(OUT, 'word-dict.json'), JSON.stringify(dict));
+console.log(`dict: ${Object.keys(dict).length}`);
 writeFileSync(join(OUT, 'lessons-meta.json'), JSON.stringify(meta));
 console.log(`meta: ${meta.length}`);

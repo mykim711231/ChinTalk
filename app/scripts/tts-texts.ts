@@ -33,6 +33,20 @@ export function collectTexts(lessons: Lesson[]): string[] {
   return [...set];
 }
 
+/** 한글 음성: 괄호 보충설명은 읽지 않는다. lib/tts.ts 의 koSpeech 와 동일해야 한다 */
+export const koSpeech = (s: string) => normalizeTts(s.replace(/\([^)]*\)/g, ''));
+export const koHashOf = (s: string) => createHash('sha1').update('ko:' + koSpeech(s)).digest('hex').slice(0, 12);
+export const KO_MANIFEST = join(DATA, 'ko-tts-manifest.json');
+/** 데일리·편하게 듣기·마스터리가 읽는 본문(text) 의 한글 번역 */
+export function collectKo(lessons: Lesson[]): string[] {
+  const set = new Set<string>();
+  for (const l of lessons) for (const v of l.text) { const k = koSpeech(v.ko); if (k) set.add(k); }
+  return [...set];
+}
+export function readKoManifest(): Record<string, string> {
+  return existsSync(KO_MANIFEST) ? JSON.parse(readFileSync(KO_MANIFEST, 'utf8')) : {};
+}
+
 export function readManifest(): Record<string, string> {
   return existsSync(MANIFEST) ? JSON.parse(readFileSync(MANIFEST, 'utf8')) : {};
 }

@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import BottomNav from './components/BottomNav';
+import StudyPage from './pages/StudyPage';
+import WordSheet from './components/WordSheet';
 import TopBar from './components/TopBar';
 import Footer from './components/Footer';
 import HomePage from './pages/HomePage';
@@ -38,6 +40,7 @@ export default function App() {
         <Route path="/path" element={<PathPage />} />
         <Route path="/lesson/:id" element={<LessonPage />} />
         <Route path="/lesson/:id/mastery" element={<MasteryPage />} />
+        <Route path="/study" element={<StudyPage />} />
         <Route path="/daily" element={<DailyPage />} />
         <Route path="/passive" element={<PassivePage />} />
         <Route path="/help" element={<HelpPage />} />
@@ -47,6 +50,7 @@ export default function App() {
       </Routes>
       {!bare && <Footer />}
       {!bare && <BottomNav />}
+      <WordSheet />
     </div>
   );
 }

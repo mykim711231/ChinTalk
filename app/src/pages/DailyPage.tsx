@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { loadLesson, loadMeta } from '../lib/contentLoader';
 import { recommendLesson } from '../lib/recommend';
-import { speakAsync, stopSpeak } from '../lib/tts';
+import { speakAsync, speakKoIfOn, stopSpeak } from '../lib/tts';
 import { calcStreak, useProgressStore } from '../stores/useProgressStore';
 import { useHighlightStore } from '../stores/useHighlightStore';
 import { useSettingsStore } from '../stores/useSettingsStore';
@@ -69,7 +69,10 @@ export default function DailyPage() {
       let i = 0;
       while (alive) {
         setVIdx(i % lesson.text.length);
-        await speakAsync(lesson.text[i % lesson.text.length].zh);
+        const verse = lesson.text[i % lesson.text.length];
+        await speakAsync(verse.zh);
+        if (!alive) break;
+        if (stepRef.current !== 4) { await new Promise((r) => setTimeout(r, 250)); if (alive) await speakKoIfOn(verse.ko); }
         if (!alive) break;
         await new Promise((r) => setTimeout(r, stepRef.current === 4 ? 2200 / Math.min(speed, 4) : 600));
         i++;

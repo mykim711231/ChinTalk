@@ -3,9 +3,13 @@
 import { MsEdgeTTS, OUTPUT_FORMAT } from 'msedge-tts';
 import { existsSync, mkdirSync, writeFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { collectTexts, hashOf, loadLessons, readManifest, MANIFEST, TTS_DIR } from './tts-texts';
+import { collectTexts, collectKo, hashOf, koHashOf, loadLessons, readManifest, readKoManifest, MANIFEST, KO_MANIFEST as KO_MAN, TTS_DIR } from './tts-texts';
 
-const VOICE = 'zh-CN-XiaoxiaoNeural';
+const KO = process.argv.includes('--lang') && process.argv[process.argv.indexOf('--lang') + 1] === 'ko';
+const VOICE = KO ? 'ko-KR-SunHiNeural' : 'zh-CN-XiaoxiaoNeural';
+const hashFn = KO ? koHashOf : hashOf;
+const collect = KO ? collectKo : collectTexts;
+const MAN_PATH = KO ? KO_MAN : MANIFEST;
 const arg = process.argv.indexOf('--vol');
 const volArg = arg >= 0 ? process.argv[arg + 1] : '1';
 const vols = volArg === 'all' ? [1, 2, 3, 4, 5, 6, 7, 8] : [parseInt(volArg, 10)];
@@ -13,7 +17,7 @@ const limitIdx = process.argv.indexOf('--limit');
 const limit = limitIdx >= 0 ? parseInt(process.argv[limitIdx + 1], 10) : Infinity;
 
 mkdirSync(TTS_DIR, { recursive: true });
-const manifest = readManifest();
+const manifest = KO ? readKoManifest() : readManifest();
 
 async function synth(tts: MsEdgeTTS, text: string): Promise<Buffer> {
   const { audioStream } = tts.toStream(text);
@@ -31,14 +35,14 @@ async function newClient() {
   return tts;
 }
 
-const texts = vols.flatMap((v) => collectTexts(loadLessons(v)));
-const todo = [...new Set(texts)].filter((t) => !existsSync(join(TTS_DIR, `${hashOf(t)}.mp3`)));
+const texts = vols.flatMap((v) => collect(loadLessons(v)));
+const todo = [...new Set(texts)].filter((t) => !existsSync(join(TTS_DIR, `${hashFn(t)}.mp3`)));
 console.log(`vols=${vols} texts=${new Set(texts).size} todo=${todo.length}`);
 
 let tts = await newClient();
 let ok = 0, fail = 0;
 for (const t of todo.slice(0, limit)) {
-  const file = `${hashOf(t)}.mp3`;
+  const file = `${hashFn(t)}.mp3`;
   let done = false;
   for (let attempt = 1; attempt <= 3 && !done; attempt++) {
     try {
@@ -52,14 +56,14 @@ for (const t of todo.slice(0, limit)) {
     }
   }
   if (!done) fail++;
-  if ((ok + fail) % 50 === 0) { writeFileSync(MANIFEST, JSON.stringify(manifest)); console.log(`${ok + fail}/${todo.length}`); }
+  if ((ok + fail) % 50 === 0) { writeFileSync(MAN_PATH, JSON.stringify(manifest)); console.log(`${ok + fail}/${todo.length}`); }
 }
 // 이미 존재하는 파일도 manifest에 반영
-for (const t of texts) if (existsSync(join(TTS_DIR, `${hashOf(t)}.mp3`))) manifest[t] = `${hashOf(t)}.mp3`;
-writeFileSync(MANIFEST, JSON.stringify(manifest));
+for (const t of texts) if (existsSync(join(TTS_DIR, `${hashFn(t)}.mp3`))) manifest[t] = `${hashFn(t)}.mp3`;
+writeFileSync(MAN_PATH, JSON.stringify(manifest));
 try { tts.close(); } catch { /* ignore */ }
 
 let bytes = 0;
-for (const t of new Set(texts)) { const p = join(TTS_DIR, `${hashOf(t)}.mp3`); if (existsSync(p)) bytes += statSync(p).size; }
+for (const t of new Set(texts)) { const p = join(TTS_DIR, `${hashFn(t)}.mp3`); if (existsSync(p)) bytes += statSync(p).size; }
 console.log(`synthesized=${ok} failed=${fail} size(selected vols)=${(bytes / 1024 / 1024).toFixed(2)}MB`);
 if (fail) process.exit(1);

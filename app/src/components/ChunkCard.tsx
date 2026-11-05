@@ -3,6 +3,8 @@ import { useSettingsStore } from '../stores/useSettingsStore';
 import { useHighlightStore, type Color } from '../stores/useHighlightStore';
 import type { Verse } from '../types/lesson';
 import Icon from './Icon';
+import HanText from './HanText';
+import { alignChars } from '../lib/pinyin';
 
 const BG: Record<Color, string> = { green: 'bg-green-50', yellow: 'bg-yellow-50', red: 'bg-red-50' };
 const DOT: Record<Color, string> = { green: 'bg-green-600', yellow: 'bg-yellow-500', red: 'bg-red-600' };
@@ -12,6 +14,7 @@ export default function ChunkCard({ verse, speaker }: { verse: Verse; speaker?: 
   const { showZh, showPinyin, showKo } = useSettingsStore();
   const { marks, cycle } = useHighlightStore();
   const key = verse.chunks[0]?.id ?? verse.zh;
+  const aligned = !!alignChars(verse.zh, verse.pinyin);
   const color = marks[key];
   return (
     <div className={`rounded-xl border border-slate-200 p-3 mb-2 ${color ? BG[color] : 'bg-white'}`}>
@@ -25,8 +28,12 @@ export default function ChunkCard({ verse, speaker }: { verse: Verse; speaker?: 
         </button>
         <div className="flex-1 min-w-0">
           {speaker && <span className="text-xs text-slate-500 mr-1">{speaker}</span>}
-          {showZh && <div className="text-xl leading-snug">{verse.zh}</div>}
-          {showPinyin && <div className="text-sm text-slate-600">{verse.pinyin}</div>}
+          {showZh && (
+            <div className={`text-xl ${showPinyin && aligned ? 'leading-[2.3]' : 'leading-snug'}`}>
+              <HanText zh={verse.zh} pinyin={verse.pinyin} ruby={showPinyin} />
+            </div>
+          )}
+          {showPinyin && (!showZh || !aligned) && <div className="text-sm text-slate-600">{verse.pinyin}</div>}
           {showKo && <div className="text-sm text-slate-800">{verse.ko}</div>}
         </div>
         <button

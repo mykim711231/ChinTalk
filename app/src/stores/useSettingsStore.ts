@@ -15,6 +15,9 @@ type S = {
   ttsRate: number;
   level: Level;
   onboarded: boolean;
+  /** 데일리·편하게 듣기·마스터리에서 중국어 뒤에 한글 번역을 읽어 줌 */
+  koVoice: boolean;
+  setKoVoice: (v: boolean) => void;
   /** 설치 안내 "다시 보지 않기"/닫은 시각(ms), 7일 후 재표시 */
   installDismissedAt: number;
   setOnboarded: (v: boolean) => void;
@@ -37,6 +40,8 @@ export const useSettingsStore = create<S>()(
       ttsRate: 1,
       level: 1,
       onboarded: false,
+      koVoice: false,
+      setKoVoice: (koVoice) => set({ koVoice }),
       installDismissedAt: 0,
       setOnboarded: (onboarded) => set({ onboarded }),
       dismissInstall: () => set({ installDismissedAt: Date.now() }),
