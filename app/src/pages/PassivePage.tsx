@@ -25,6 +25,7 @@ export default function PassivePage() {
   const [cur, setCur] = useState<string | null>(null);
   const [playing, setPlaying] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+  const [vol, setVol] = useState<number | null>(null);
   const token = useRef(0);
   const modeRef = useRef(mode);
   modeRef.current = mode;
@@ -33,6 +34,17 @@ export default function PassivePage() {
   const unlocked = meta.filter((m) => isUnlocked(prog, m.id));
   const listRef = useRef(unlocked);
   listRef.current = unlocked;
+
+  const vols = [...new Set(meta.map((m) => m.vol))].sort((a, b) => a - b);
+  const shownVol = vol ?? (unlocked[0]?.vol ?? 1);
+  // 재생이 다른 vol 로 넘어가면 그 vol 을 펼치고 현재 카드로 스크롤
+  useEffect(() => {
+    const m = meta.find((x) => x.id === cur);
+    if (m) setVol(m.vol);
+  }, [cur, meta]);
+  useEffect(() => {
+    if (cur) document.getElementById('passive-' + cur)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [cur, vol]);
 
   const stop = useCallback(() => {
     token.current++;
@@ -137,9 +149,20 @@ export default function PassivePage() {
             <span className="text-xs text-slate-500">해금 {unlocked.length}/{total}과</span>
           </div>
           {note && <p role="status" className="text-xs text-amber-800">{note}</p>}
+          <div className="flex flex-wrap gap-2" role="tablist" aria-label="권 선택">
+            {vols.map((v) => {
+              const n = unlocked.filter((u) => u.vol === v).length;
+              return (
+                <button
+                  key={v} type="button" role="tab" aria-selected={shownVol === v} disabled={!n} onClick={() => setVol(v)}
+                  className={`rounded-full border text-sm px-3 py-1.5 disabled:opacity-40 ${shownVol === v ? 'bg-brand text-white border-brand' : 'bg-white border-slate-300'}`}
+                >Vol.{v} <span className="text-xs opacity-80">{n}</span></button>
+              );
+            })}
+          </div>
           <ul className="space-y-2">
-            {unlocked.map((m) => (
-              <li key={m.id}>
+            {unlocked.filter((m) => m.vol === shownVol).map((m) => (
+              <li key={m.id} id={'passive-' + m.id}>
                 <button
                   type="button" onClick={() => void playFrom(m.id)} aria-current={cur === m.id && playing}
                   className={`w-full text-left rounded-xl border p-3 flex items-center gap-3 ${cur === m.id ? 'border-brand bg-brand-50' : 'border-slate-200 bg-white'}`}
