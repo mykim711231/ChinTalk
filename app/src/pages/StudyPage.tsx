@@ -43,7 +43,7 @@ export default function StudyPage() {
         <Icon name="target" size={26} className="text-brand flex-none" />
         <span className="min-w-0 flex-1">
           <b className="block">마스터리 정밀 학습</b>
-          <span className="block text-xs text-slate-500">블라인드 → 스크립트 → 쉐도잉 → 최종 점검 4단계. 달성하면 해금돼요.</span>
+          <span className="block text-xs text-slate-500">본문·회화를 골라 블라인드 → 스크립트 → 쉐도잉 → 최종 점검 4단계로 학습해요. 달성하면 해금돼요.</span>
         </span>
         <Icon name="arrowRight" size={18} className="text-slate-400" />
       </Link>

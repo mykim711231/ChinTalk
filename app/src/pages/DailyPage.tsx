@@ -153,12 +153,12 @@ export default function DailyPage() {
                       return step === 2 ? (
                         <button
                           key={c.id} type="button" aria-pressed={red} onClick={() => toggleRed(c.id)}
-                          className={`rounded-xl border px-3 py-2 text-lg ${red ? 'bg-red-50 border-red-500 text-red-800' : 'bg-white border-slate-300'}`}
+                          lang="zh-Hans" className={`rounded-xl border px-3 py-2 reading-zh ${red ? 'bg-red-50 border-red-500 text-red-800' : 'bg-white border-slate-300'}`}
                         >{c.zh}</button>
                       ) : (
                         <span key={c.id} className="rounded-xl border border-slate-200 px-3 py-2 text-center">
-                          <span className="block text-lg">{c.zh}</span>
-                          <span className="block text-xs text-slate-500">{c.pinyin}</span>
+                          <span lang="zh-Hans" className="block reading-zh">{c.zh}</span>
+                          <span lang="zh-Latn-pinyin" className="block reading-pinyin">{c.pinyin}</span>
                           <span className="block text-xs">{c.ko}</span>
                         </span>
                       );
@@ -166,8 +166,8 @@ export default function DailyPage() {
                   </div>
                 ) : (
                   <>
-                    <div className="text-2xl">{v.zh}</div>
-                    {step === 1 && <div className="text-sm text-slate-600">{v.pinyin} · {v.ko}</div>}
+                    <div lang="zh-Hans" className="reading-zh">{v.zh}</div>
+                    {step === 1 && <><div lang="zh-Latn-pinyin" className="reading-pinyin">{v.pinyin}</div><div className="text-base leading-relaxed">{v.ko}</div></>}
                   </>
                 )}
               </div>

@@ -1,4 +1,5 @@
 export type Chunk = { id: string; zh: string; pinyin: string; ko: string };
+export type MasterySource = 'text' | 'dialog';
 export type Verse = { zh: string; pinyin: string; ko: string; chunks: Chunk[]; words?: number[]; phrases?: number[] };
 export type Vocab = {
   zh: string; pinyin: string; pos: string; ko: string;

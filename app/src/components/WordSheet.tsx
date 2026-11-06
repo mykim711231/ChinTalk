@@ -34,26 +34,26 @@ export default function WordSheet() {
           <button type="button" aria-label="글자 듣기" onClick={() => speak(ch)} className="w-10 h-10 rounded-full bg-brand text-white flex items-center justify-center">
             <Icon name="speaker" size={18} />
           </button>
-          <div className="flex-1"><span className="text-3xl">{ch}</span> <span className="text-slate-500">{target.py}</span></div>
+          <div className="flex-1 min-w-0"><span lang="zh-Hans" className="font-hanzi text-3xl">{ch}</span> <span lang="zh-Latn-pinyin" className="reading-pinyin">{target.py}</span></div>
           <button type="button" aria-label="닫기" onClick={close} className="w-9 h-9 text-slate-500 text-xl leading-none">×</button>
         </div>
         {hits === null && <p className="text-sm text-slate-500">찾는 중…</p>}
         {hits?.length === 0 && <p className="text-sm text-slate-500">이 글자가 들어간 단어가 단어장에 아직 없어요.</p>}
         {hits?.map(({ word, entry }) => (
           <div key={word} className="rounded-xl border border-slate-200 p-3">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <button type="button" aria-label={`${word} 듣기`} onClick={() => speak(word)} className="w-8 h-8 rounded-full border border-slate-300 flex items-center justify-center">
                 <Icon name="speaker" size={14} />
               </button>
-              <span className="text-xl font-semibold">{word}</span>
-              <span className="text-sm text-slate-600">{entry.p}</span>
+              <span lang="zh-Hans" className="reading-zh">{word}</span>
+              <span lang="zh-Latn-pinyin" className="reading-pinyin">{entry.p}</span>
               {entry.pos && <span className="text-xs text-slate-500">· {entry.pos}</span>}
             </div>
             <p className="mt-1 text-sm text-slate-800">{entry.ko || '뜻 준비 중이에요 — 병음으로 발음을 확인해 보세요.'}</p>
             {entry.h && <p className="mt-1 text-xs text-slate-500">{entry.h}</p>}
             {entry.ex && (
               <p className="mt-1 text-xs text-slate-600">
-                {entry.ex[0]} <span className="text-slate-400">{entry.ex[1]}</span> — {entry.ex[2]}
+                <span lang="zh-Hans" className="font-hanzi text-xl leading-relaxed">{entry.ex[0]}</span> <span lang="zh-Latn-pinyin" className="reading-pinyin">{entry.ex[1]}</span> — {entry.ex[2]}
               </p>
             )}
             <Link to={`/lesson/${entry.l}`} onClick={close} className="mt-1 inline-block text-xs text-brand underline">{entry.l} 과에서 보기</Link>

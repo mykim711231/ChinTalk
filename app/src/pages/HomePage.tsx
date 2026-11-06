@@ -110,8 +110,8 @@ export default function HomePage() {
           <div className="text-xs text-slate-500">오늘의 한 마디 · {sod.title}</div>
           <div className="flex items-start gap-3 mt-1">
             <div className="flex-1 min-w-0">
-              <div className="text-xl">{sod.verse.zh}</div>
-              <div className="text-sm text-slate-600">{sod.verse.pinyin}</div>
+              <div lang="zh-Hans" className="reading-zh">{sod.verse.zh}</div>
+              <div lang="zh-Latn-pinyin" className="reading-pinyin">{sod.verse.pinyin}</div>
               <div className="text-sm">{sod.verse.ko}</div>
             </div>
             <button type="button" aria-label="오늘의 한 마디 듣기" onClick={() => void speak(sod.verse.zh)} className="flex-none w-10 h-10 rounded-full bg-brand text-white grid place-items-center">

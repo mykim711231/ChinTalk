@@ -31,9 +31,11 @@ export const koMp3Url = async (text: string): Promise<string | null> => {
 
 let audio: HTMLAudioElement | null = null;
 let settle: (() => void) | null = null; // 진행 중인 speakAsync 를 끝낸다
+let speechRequest = 0;
 export const ttsSupported = () => typeof window !== 'undefined' && 'speechSynthesis' in window;
 
 export function stopSpeak() {
+  speechRequest++;
   if (audio) { audio.pause(); audio = null; }
   if (ttsSupported()) window.speechSynthesis.cancel();
   const s = settle; settle = null; s?.();
@@ -51,7 +53,10 @@ function speakFallback(text: string, rate: number, done?: () => void, lang = 'zh
 /** 재생이 끝나거나(또는 stopSpeak 로 중단되면) resolve 된다. */
 export async function speakAsync(text: string, rate: number = useSettingsStore.getState().ttsRate, lang: 'zh' | 'ko' = 'zh'): Promise<void> {
   stopSpeak();
+  const request = speechRequest;
   const url = await (lang === 'ko' ? koMp3Url(text) : mp3Url(text));
+  // 음원을 조회하는 동안 중단하거나 다른 재생을 시작했으면 이전 요청은 재생하지 않는다.
+  if (request !== speechRequest) return;
   const fb = lang === 'ko' ? koSpeech(text) : text;
   const fl = lang === 'ko' ? 'ko-KR' : 'zh-CN';
   return new Promise<void>((resolve) => {
@@ -64,7 +69,12 @@ export async function speakAsync(text: string, rate: number = useSettingsStore.g
     audio = a;
     a.onended = () => { if (audio === a) audio = null; finish(); };
     a.onerror = () => { if (audio === a) { audio = null; speakFallback(fb, rate, finish, fl); } };
-    a.play().catch(() => { if (audio === a) audio = null; speakFallback(fb, rate, finish, fl); });
+    a.play().catch(() => {
+      if (audio === a && request === speechRequest) {
+        audio = null;
+        speakFallback(fb, rate, finish, fl);
+      }
+    });
   });
 }
 

@@ -18,7 +18,7 @@ export default function ChunkCard({ verse, speaker }: { verse: Verse; speaker?: 
   const color = marks[key];
   return (
     <div className={`rounded-xl border border-slate-200 p-3 mb-2 ${color ? BG[color] : 'bg-white'}`}>
-      <div className="flex items-start gap-2">
+      <div className="grid grid-cols-[2.25rem_minmax(0,1fr)] grid-rows-[auto_1fr] items-start gap-x-2 gap-y-1">
         <button
           aria-label="듣기"
           onClick={() => speak(verse.zh)}
@@ -26,20 +26,20 @@ export default function ChunkCard({ verse, speaker }: { verse: Verse; speaker?: 
         >
           <Icon name="speaker" size={18} />
         </button>
-        <div className="flex-1 min-w-0">
+        <div className="col-start-2 row-start-1 row-span-2 min-w-0">
           {speaker && <span className="text-xs text-slate-500 mr-1">{speaker}</span>}
           {showZh && (
-            <div className={`text-xl ${showPinyin && aligned ? 'leading-[2.3]' : 'leading-snug'}`}>
+            <div className="reading-zh">
               <HanText zh={verse.zh} pinyin={verse.pinyin} ruby={showPinyin} words={verse.words} phrases={verse.phrases} breakLevel={breakLevel} />
             </div>
           )}
-          {showPinyin && (!showZh || !aligned) && <div className="text-sm text-slate-600">{verse.pinyin}</div>}
-          {showKo && <div className="text-sm text-slate-800">{verse.ko}</div>}
+          {showPinyin && (!showZh || !aligned) && <div lang="zh-Latn-pinyin" className="reading-pinyin mt-1">{verse.pinyin}</div>}
+          {showKo && <div className="mt-1 text-base leading-snug text-slate-800">{verse.ko}</div>}
         </div>
         <button
           aria-label={color ? `형광펜: ${LABEL[color]}` : '형광펜 표시'}
           onClick={() => cycle(key)}
-          className="shrink-0 w-9 h-9 flex items-center justify-center"
+          className="col-start-1 row-start-2 w-9 h-9 flex items-center justify-center"
         >
           <span
             className={`block w-4 h-4 rounded-full ${color ? DOT[color] : 'border-2 border-slate-300'}`}

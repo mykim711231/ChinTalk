@@ -4,7 +4,7 @@ import { loadLesson, loadMeta } from '../lib/contentLoader';
 import { speak, speakAsync, stopSpeak } from '../lib/tts';
 import ChunkCard from '../components/ChunkCard';
 import { useSettingsStore } from '../stores/useSettingsStore';
-import { useProgressStore } from '../stores/useProgressStore';
+import { getMasteryResult, useProgressStore } from '../stores/useProgressStore';
 import Icon from '../components/Icon';
 import type { Lesson, LessonMeta } from '../types/lesson';
 
@@ -22,16 +22,23 @@ export default function LessonPage() {
   const [lesson, setLesson] = useState<Lesson | null | undefined>(undefined);
   const [tab, setTab] = useState<Tab>('text');
   const { showZh, showPinyin, showKo, breakLevel, toggle, setBreakLevel } = useSettingsStore();
-  const { done, markDone, setLast, mastered } = useProgressStore();
+  const progress = useProgressStore();
+  const { done, markDone, setLast } = progress;
   const [meta, setMeta] = useState<LessonMeta[]>([]);
   const [playing, setPlaying] = useState(-1);
   const token = useRef(0);
   const touch = useRef<{ x: number; y: number } | null>(null);
   const nav = useNavigate();
+  const playableVerses = tab === 'text' ? lesson?.text ?? []
+    : tab === 'dialog' ? lesson?.dialogs.flatMap((d) => d.turns.map((t) => t.verse)) ?? []
+    : [];
 
   useEffect(() => { void loadMeta().then(setMeta); }, []);
   // 과를 벗어나면 연속 재생 중단
-  useEffect(() => () => { token.current++; stopSpeak(); }, [id]);
+  useEffect(() => {
+    setPlaying(-1);
+    return () => { token.current++; stopSpeak(); };
+  }, [id]);
   // 스크롤 70% 이상 → 읽기 완료 (해금과 무관)
   useEffect(() => {
     if (!lesson) return;
@@ -45,17 +52,24 @@ export default function LessonPage() {
   }, [lesson, markDone, tab]);
 
   const playAll = async () => {
-    if (!lesson) return;
+    if (!playableVerses.length) return;
     if (playing >= 0) { token.current++; stopSpeak(); setPlaying(-1); return; }
     const my = ++token.current;
-    for (let i = 0; i < lesson.text.length; i++) {
+    for (let i = 0; i < playableVerses.length; i++) {
       if (token.current !== my) return;
       setPlaying(i);
-      await speakAsync(lesson.text[i].zh);
+      await speakAsync(playableVerses[i].zh);
       if (token.current !== my) return;
       await new Promise((r) => setTimeout(r, 1000)); // 자동 연속 재생 간격
     }
     if (token.current === my) setPlaying(-1);
+  };
+  const selectTab = (nextTab: Tab) => {
+    if (nextTab === tab) return;
+    token.current++;
+    stopSpeak();
+    setPlaying(-1);
+    setTab(nextTab);
   };
   const idx = meta.findIndex((m) => m.id === id);
   const prev = idx > 0 ? meta[idx - 1] : undefined;
@@ -90,7 +104,10 @@ export default function LessonPage() {
     );
 
   const chip = (on: boolean) =>
-    `px-3 py-1 rounded-full text-sm border ${on ? 'bg-brand text-white border-brand' : 'border-slate-300 text-slate-600'}`;
+    `px-3 py-1 rounded-full text-sm border disabled:opacity-40 disabled:cursor-not-allowed ${on ? 'bg-brand text-white border-brand' : 'border-slate-300 text-slate-600'}`;
+  const canDisplay = tab === 'text' || tab === 'dialog';
+  const masterySource = tab === 'dialog' ? 'dialog' : 'text';
+  const masteryResult = getMasteryResult(progress, lesson.id, masterySource);
 
   return (
     <main className="p-4 pb-24" onTouchStart={(e) => { touch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }; }} onTouchEnd={onTouchEnd}>
@@ -98,24 +115,24 @@ export default function LessonPage() {
         ← 학습 경로
       </Link>
       <h1 className="text-xl font-bold mt-1">
-        {lesson.no}. {lesson.titleZh}
+        {lesson.no}. <span lang="zh-Hans" className="font-hanzi">{lesson.titleZh}</span>
       </h1>
       <div className="text-sm text-slate-600 mb-3">
-        {lesson.titlePinyin} · {lesson.titleKo}
+        <span lang="zh-Latn-pinyin" className="reading-pinyin">{lesson.titlePinyin}</span> · {lesson.titleKo}
       </div>
       <div className="flex flex-wrap gap-2 mb-3">
-        <Link to={`/lesson/${lesson.id}/mastery`} className="inline-flex items-center gap-1.5 rounded-full bg-brand text-white text-sm font-semibold px-3 py-1">
-          <Icon name="target" size={14} /> 4단계 마스터리{mastered[lesson.id] ? ' (완료)' : ''}
-        </Link>
-        <button type="button" onClick={() => void playAll()} className="inline-flex items-center gap-1.5 rounded-full border border-brand text-brand text-sm font-semibold px-3 py-1">
-          <Icon name={playing >= 0 ? 'stop' : 'play'} size={14} /> {playing >= 0 ? '멈추기' : '전체 듣기'}
+        <button type="button" disabled={!canDisplay || !playableVerses.length} onClick={() => nav(`/lesson/${lesson.id}/mastery${masterySource === 'dialog' ? '?source=dialog' : ''}`)} title={!canDisplay ? '본문·회화 탭에서 사용할 수 있어요.' : undefined} className="inline-flex items-center gap-1.5 rounded-full bg-brand text-white text-sm font-semibold px-3 py-1 disabled:opacity-40 disabled:cursor-not-allowed">
+          <Icon name="target" size={14} /> 4단계 마스터리{masteryResult ? ' (완료)' : ''}
+        </button>
+        <button type="button" disabled={!playableVerses.length} onClick={() => void playAll()} className="inline-flex items-center gap-1.5 rounded-full border border-brand text-brand text-sm font-semibold px-3 py-1 disabled:opacity-40 disabled:cursor-not-allowed">
+          <Icon name={playing >= 0 ? 'stop' : 'play'} size={14} /> {playing >= 0 ? '멈추기' : tab === 'text' ? '본문 전체 듣기' : tab === 'dialog' ? '회화 전체 듣기' : '전체 듣기'}
         </button>
       </div>
       <div className="flex gap-1 overflow-x-auto mb-3 border-b border-slate-200">
         {TABS.map(([k, label]) => (
           <button
             key={k}
-            onClick={() => setTab(k)}
+            onClick={() => selectTab(k)}
             className={`px-3 py-2 text-sm whitespace-nowrap ${
               tab === k ? 'border-b-2 border-brand text-brand font-semibold' : 'text-slate-500'
             }`}
@@ -124,22 +141,20 @@ export default function LessonPage() {
           </button>
         ))}
       </div>
-      {(tab === "text" || tab === "dialog") && (
       <div className="flex flex-wrap gap-2 mb-3">
-        <button className={chip(showZh)} onClick={() => toggle('showZh')}>
+        <button type="button" disabled={!canDisplay} aria-pressed={showZh} className={chip(showZh)} onClick={() => toggle('showZh')}>
           한자
         </button>
-        <button className={chip(showPinyin)} onClick={() => toggle('showPinyin')}>
+        <button type="button" disabled={!canDisplay} aria-pressed={showPinyin} className={chip(showPinyin)} onClick={() => toggle('showPinyin')}>
           병음
         </button>
-        <button className={chip(showKo)} onClick={() => toggle('showKo')}>
+        <button type="button" disabled={!canDisplay} aria-pressed={showKo} className={chip(showKo)} onClick={() => toggle('showKo')}>
           한글
         </button>
-        <button className={chip(breakLevel > 0)} onClick={() => setBreakLevel(((breakLevel + 1) % 4) as 0 | 1 | 2 | 3)} aria-label="의미단위 표시">
+        <button type="button" disabled={!canDisplay} aria-pressed={breakLevel > 0} className={chip(breakLevel > 0)} onClick={() => setBreakLevel(((breakLevel + 1) % 4) as 0 | 1 | 2 | 3)} aria-label="의미단위 표시">
           {breakLevel === 0 ? '의미단위 표시' : `의미단위 표시 ${['단어', '구', '절'][breakLevel - 1]}`}
         </button>
       </div>
-      )}
 
       {tab === 'text' && lesson.text.map((v, i) => (
         <div key={i} className={i === playing ? 'ring-2 ring-brand rounded-xl' : ''}><ChunkCard verse={v} /></div>
@@ -149,19 +164,19 @@ export default function LessonPage() {
         <>
           {lesson.vocab.map((w, i) => (
             <div key={i} className="border border-slate-200 rounded-xl p-3 mb-2">
-              <button onClick={() => speak(w.zh)} className="text-xl mr-2 inline-flex items-center gap-1">
-                {w.zh} <Icon name="speaker" size={16} className="text-brand" />
+              <button onClick={() => speak(w.zh)} className="mr-2 inline-flex items-center gap-1">
+                <span lang="zh-Hans" className="reading-zh">{w.zh}</span> <Icon name="speaker" size={16} className="text-brand" />
               </button>
               <span className="text-sm text-slate-600">
-                {w.pinyin} · {w.pos}
+                <span lang="zh-Latn-pinyin" className="reading-pinyin">{w.pinyin}</span> · {w.pos}
               </span>
               <div>{w.ko}</div>
               {w.hanjaNote && <div className="text-xs text-slate-500 mt-1">{w.hanjaNote}</div>}
               {w.exZh && (
                 <div className="text-sm mt-1">
-                  <button aria-label="예문 듣기" onClick={() => speak(w.exZh!)} className="align-middle text-brand"><Icon name="speaker" size={14} /></button> {w.exZh}
+                  <button aria-label="예문 듣기" onClick={() => speak(w.exZh!)} className="align-middle text-brand"><Icon name="speaker" size={14} /></button> <span lang="zh-Hans" className="font-hanzi text-xl leading-relaxed">{w.exZh}</span>
                   <div className="text-xs text-slate-500">
-                    {w.exPinyin} · {w.exKo}
+                    <span lang="zh-Latn-pinyin" className="reading-pinyin">{w.exPinyin}</span> · {w.exKo}
                   </div>
                 </div>
               )}
@@ -170,15 +185,15 @@ export default function LessonPage() {
           {lesson.related.map((g, i) => (
             <div key={i} className="mt-3">
               <h3 className="font-semibold text-sm mb-1">{g.title}</h3>
-              <table className="w-full text-sm">
+              <table className="w-full table-fixed text-sm">
                 <tbody>
                   {g.rows.map((r, j) => (
                     <tr key={j} className="border-t border-slate-100">
                       <td className="py-1">
-                        <button onClick={() => speak(r.zh)}>{r.zh}</button>
+                        <button lang="zh-Hans" className="font-hanzi text-xl break-words" onClick={() => speak(r.zh)}>{r.zh}</button>
                       </td>
-                      <td className="text-slate-500">{r.pinyin}</td>
-                      <td>{r.ko}</td>
+                      <td lang="zh-Latn-pinyin" className="reading-pinyin">{r.pinyin}</td>
+                      <td className="break-words">{r.ko}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -205,7 +220,9 @@ export default function LessonPage() {
           <div key={i}>
             <h3 className="font-semibold text-sm mb-1">{d.title}</h3>
             {d.turns.map((t, j) => (
-              <ChunkCard key={j} verse={t.verse} speaker={t.speaker} />
+              <div key={j} className={lesson.dialogs.slice(0, i).reduce((n, section) => n + section.turns.length, 0) + j === playing ? 'ring-2 ring-brand rounded-xl' : ''}>
+                <ChunkCard verse={t.verse} speaker={t.speaker} />
+              </div>
             ))}
           </div>
         ))}
@@ -215,7 +232,7 @@ export default function LessonPage() {
           lesson.traps.map((t, i) => (
             <div key={i} className="border border-amber-200 bg-amber-50 rounded-xl p-3 mb-2 text-sm">
               <div className="font-semibold">
-                <Icon name="bulb" size={16} className="inline -mt-0.5 mr-1" />{t.target} <span className="text-slate-500 font-normal">{t.pinyin}</span>
+                <Icon name="bulb" size={16} className="inline -mt-0.5 mr-1" /><span lang="zh-Hans" className="font-hanzi text-xl">{t.target}</span> <span lang="zh-Latn-pinyin" className="reading-pinyin font-normal">{t.pinyin}</span>
               </div>
               <div className="text-red-700">✗ {t.mistake}</div>
               <div className="text-green-700">✓ {t.correct}</div>
