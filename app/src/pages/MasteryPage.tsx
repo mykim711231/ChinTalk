@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { loadLesson, loadMeta } from '../lib/contentLoader';
 import { speak, speakAsync, speakKoIfOn, stopSpeak } from '../lib/tts';
-import { useProgressStore } from '../stores/useProgressStore';
+import { recommendLesson } from "../lib/recommend";
+import { isUnlocked, useProgressStore } from '../stores/useProgressStore';
 import { useSettingsStore } from '../stores/useSettingsStore';
 import ChunkCard from '../components/ChunkCard';
 import Icon from '../components/Icon';
@@ -51,7 +52,8 @@ export default function MasteryPage() {
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [popup, setPopup] = useState<{ chunk: Chunk; traps: Lesson['traps'] } | null>(null);
   const [score, setScore] = useState(0);
-  const { mastered, markMastered, setLast } = useProgressStore();
+  const prog = useProgressStore();
+  const { mastered, markMastered, setLast } = prog;
   const level = useSettingsStore((s) => s.level);
   void level;
   const all = usePlayAll(lesson ?? null);
@@ -93,7 +95,7 @@ export default function MasteryPage() {
         {finished && <span className="text-xs rounded-full bg-green-100 text-green-800 px-2 py-0.5">완료 · {finished.score}점</span>}
       </div>
 
-      <LessonSelect label="과 선택" metas={metas} value={lesson.id} onChange={(v) => { all.stop(); nav(`/lesson/${v}/mastery`); }} />
+      <LessonSelect label="과 선택" metas={metas} value={lesson.id} recId={recommendLesson(metas, prog, level)?.id} isDone={(id) => isUnlocked(prog, id)} onChange={(v) => { all.stop(); nav(`/lesson/${v}/mastery`); }} />
 
       <ol className="grid grid-cols-4 gap-1" aria-label="진행 단계">
         {STAGES.map((s, i) => (

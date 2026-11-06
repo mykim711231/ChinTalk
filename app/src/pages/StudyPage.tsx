@@ -28,7 +28,7 @@ export default function StudyPage() {
     <main className="p-4 pb-28 space-y-3">
       <h1 className="text-xl font-bold">학습</h1>
       <p className="text-sm text-slate-600">소리 중심으로 익히는 세 가지 방법이에요. 아래에서 과를 고르면 10분 데일리와 마스터리에 적용돼요.</p>
-      <LessonSelect label="학습할 과" metas={meta} value={sel} onChange={setPick} recId={rec?.id} />
+      <LessonSelect label="학습할 과" metas={meta} value={sel} onChange={setPick} recId={rec?.id} isDone={(id) => isUnlocked(prog, id)} />
 
       <Link to={sel ? `/daily?id=${sel}` : '/daily'} className={card}>
         <Icon name="timer" size={26} className="text-brand flex-none" />
