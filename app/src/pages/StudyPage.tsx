@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { loadMeta } from '../lib/contentLoader';
 import { recommendLesson } from '../lib/recommend';
 import { isUnlocked, useProgressStore } from '../stores/useProgressStore';
 import { useSettingsStore } from '../stores/useSettingsStore';
 import Icon from '../components/Icon';
+import LessonSelect from '../components/LessonSelect';
 import { Toggle } from '../components/ui';
 import type { LessonMeta } from '../types/lesson';
 
@@ -19,14 +20,17 @@ export default function StudyPage() {
   useEffect(() => { void loadMeta().then(setMeta); }, []);
   const rec = recommendLesson(meta, prog, level);
   const unlocked = meta.filter((m) => isUnlocked(prog, m.id)).length;
-  const recLabel = rec ? `Vol.${rec.vol} · ${rec.no}. ${rec.titleZh}` : '';
+  const [params] = useSearchParams();
+  const [pick, setPick] = useState<string | null>(params.get('id'));
+  const sel = pick ?? rec?.id ?? null;
 
   return (
     <main className="p-4 pb-28 space-y-3">
       <h1 className="text-xl font-bold">학습</h1>
-      <p className="text-sm text-slate-600">소리 중심으로 익히는 세 가지 방법이에요. 추천 과: <b>{recLabel || '불러오는 중…'}</b></p>
+      <p className="text-sm text-slate-600">소리 중심으로 익히는 세 가지 방법이에요. 아래에서 과를 고르면 10분 데일리와 마스터리에 적용돼요.</p>
+      <LessonSelect label="학습할 과" metas={meta} value={sel} onChange={setPick} recId={rec?.id} />
 
-      <Link to={rec ? `/daily?id=${rec.id}` : '/daily'} className={card}>
+      <Link to={sel ? `/daily?id=${sel}` : '/daily'} className={card}>
         <Icon name="timer" size={26} className="text-brand flex-none" />
         <span className="min-w-0 flex-1">
           <b className="block">10분 데일리</b>
@@ -35,7 +39,7 @@ export default function StudyPage() {
         <Icon name="arrowRight" size={18} className="text-slate-400" />
       </Link>
 
-      <Link to={rec ? `/lesson/${rec.id}/mastery` : '/path'} className={card}>
+      <Link to={sel ? `/lesson/${sel}/mastery` : '/path'} className={card}>
         <Icon name="target" size={26} className="text-brand flex-none" />
         <span className="min-w-0 flex-1">
           <b className="block">마스터리 정밀 학습</b>
@@ -60,7 +64,7 @@ export default function StudyPage() {
         </span>
         <Toggle label="한글 음성" on={koVoice} onClick={() => setKoVoice(!koVoice)} />
       </div>
-      <p className="text-xs text-slate-500">다른 과로 하려면 <Link to="/path" className="text-brand underline">학습 경로</Link>에서 과를 고르고, 과 화면의 "4단계 마스터리"를 누르세요.</p>
+      
     </main>
   );
 }

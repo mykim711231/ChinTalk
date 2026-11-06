@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
-import { loadLesson } from '../lib/contentLoader';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { loadLesson, loadMeta } from '../lib/contentLoader';
 import { speak, speakAsync, speakKoIfOn, stopSpeak } from '../lib/tts';
 import { useProgressStore } from '../stores/useProgressStore';
 import { useSettingsStore } from '../stores/useSettingsStore';
 import ChunkCard from '../components/ChunkCard';
 import Icon from '../components/Icon';
-import type { Chunk, Lesson } from '../types/lesson';
+import LessonSelect from '../components/LessonSelect';
+import type { Chunk, Lesson, LessonMeta } from '../types/lesson';
 
 const STAGES = ['Blind', 'Script', 'Shadowing', 'Final'] as const;
 const btn = 'inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white text-sm font-semibold px-3 py-2 disabled:opacity-40';
@@ -54,9 +55,16 @@ export default function MasteryPage() {
   const level = useSettingsStore((s) => s.level);
   void level;
   const all = usePlayAll(lesson ?? null);
+  const nav = useNavigate();
+  const [metas, setMetas] = useState<LessonMeta[]>([]);
+  useEffect(() => { void loadMeta().then(setMetas); }, []);
 
   useEffect(() => {
     setLesson(undefined);
+    setStage(0);
+    setPicked(new Set());
+    setPopup(null);
+    setScore(0);
     loadLesson(id).then((l) => { setLesson(l ?? null); if (l) setLast(l.id); });
   }, [id, setLast]);
 
@@ -84,6 +92,8 @@ export default function MasteryPage() {
         <h1 className="text-xl font-bold">4단계 마스터리</h1>
         {finished && <span className="text-xs rounded-full bg-green-100 text-green-800 px-2 py-0.5">완료 · {finished.score}점</span>}
       </div>
+
+      <LessonSelect label="과 선택" metas={metas} value={lesson.id} onChange={(v) => { all.stop(); nav(`/lesson/${v}/mastery`); }} />
 
       <ol className="grid grid-cols-4 gap-1" aria-label="진행 단계">
         {STAGES.map((s, i) => (
