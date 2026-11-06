@@ -13,9 +13,14 @@ let preparing: Promise<void> | undefined;
 let started = false;
 let lastCheck = 0;
 
+function shouldDownloadAudio(): boolean {
+  const { voiceMode, autoDownload } = useSettingsStore.getState();
+  return voiceMode === 'recorded' && autoDownload;
+}
+
 export function resumeOfflineDownload(): Promise<void> {
+  if (!shouldDownloadAudio() || useOfflineStore.getState().core !== 'ready') return Promise.resolve();
   if (running) return running;
-  if (!useSettingsStore.getState().autoDownload || useOfflineStore.getState().core !== 'ready') return Promise.resolve();
   if (!navigator.onLine) {
     useOfflineStore.setState({ audio: 'offline' });
     return Promise.resolve();
@@ -39,8 +44,8 @@ export function resumeOfflineDownload(): Promise<void> {
         lastProgress = Date.now();
         useOfflineStore.setState(progress);
       }, abort.signal);
-      useOfflineStore.setState({ ...result, audio: result.done === result.total ? 'ready'
-        : !navigator.onLine ? 'offline' : !useSettingsStore.getState().autoDownload ? 'paused' : 'error' });
+      useOfflineStore.setState({ ...result, audio: abort.signal.aborted || !shouldDownloadAudio() ? 'paused'
+        : result.done === result.total ? 'ready' : !navigator.onLine ? 'offline' : 'error' });
     } catch {
       useOfflineStore.setState({ audio: !navigator.onLine ? 'offline'
         : abort.signal.aborted ? 'paused' : 'error' });
@@ -48,7 +53,7 @@ export function resumeOfflineDownload(): Promise<void> {
   })().finally(() => {
     controller = undefined;
     running = undefined;
-    if (abort.signal.aborted && navigator.onLine && useSettingsStore.getState().autoDownload) void resumeOfflineDownload();
+    if (abort.signal.aborted && navigator.onLine && shouldDownloadAudio()) void resumeOfflineDownload();
   });
   return running;
 }
@@ -56,7 +61,7 @@ export function resumeOfflineDownload(): Promise<void> {
 export async function pauseOfflineDownload(): Promise<void> {
   controller?.abort();
   await running;
-  useOfflineStore.setState({ audio: navigator.onLine ? 'paused' : 'offline' });
+  if (!shouldDownloadAudio()) useOfflineStore.setState({ audio: navigator.onLine ? 'paused' : 'offline' });
 }
 
 function prepareOffline(): Promise<void> {
@@ -78,7 +83,7 @@ function prepareOffline(): Promise<void> {
       }
       await migrateAudioCache();
       useOfflineStore.setState({ core: 'ready' });
-      if (useSettingsStore.getState().autoDownload) void resumeOfflineDownload();
+      if (shouldDownloadAudio()) void resumeOfflineDownload();
       else useOfflineStore.setState({ audio: 'paused' });
     } catch { useOfflineStore.setState({ core: 'error' }); }
   })().finally(() => { preparing = undefined; });
@@ -125,8 +130,8 @@ export function startOfflineFeatures(): void {
   void navigator.storage?.persist?.().catch(() => false);
   void registerWorker();
   useSettingsStore.subscribe((next, previous) => {
-    if (next.autoDownload === previous.autoDownload) return;
-    if (next.autoDownload) void resumeOfflineDownload();
+    if (next.autoDownload === previous.autoDownload && next.voiceMode === previous.voiceMode) return;
+    if (shouldDownloadAudio()) void resumeOfflineDownload();
     else void pauseOfflineDownload();
   });
   const resume = () => {

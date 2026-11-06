@@ -221,11 +221,11 @@ export default function SettingsPage() {
         <SectionHeader title="자동 설치·오프라인 저장" subtitle="전권 교재·단어장은 자동 저장돼요. 새 버전은 자동으로 받아 다음 실행 때 적용해요." />
         <Card className="divide-y divide-slate-200 mb-3">
           <div className="p-4"><OfflineStatus /></div>
-          <Row label="녹음 음원 자동 저장" description="인터넷에 연결되면 전체 녹음 음원을 받아 두고, 중단되면 이어받아요. Wi-Fi 사용을 권장해요.">
+          {s.voiceMode === 'recorded' ? <Row label="녹음 음원 자동 저장" description="녹음 음성을 사용할 때 전체 녹음 음원을 받아 두고, 중단되면 이어받아요. Wi-Fi 사용을 권장해요.">
             <Toggle label="녹음 음원 자동 저장" on={s.autoDownload} onClick={() => s.setAutoDownload(!s.autoDownload)} />
-          </Row>
+          </Row> : <Row label="녹음 음원 자동 저장" description="기기 음성 사용 중에는 받지 않아요. 녹음 음성을 선택하면 자동 저장을 설정할 수 있어요."><span className="text-sm text-slate-500">사용 안 함</span></Row>}
         </Card>
-        <SectionHeader title="권별 녹음 음원" subtitle="자동 저장을 끄면 필요한 권만 받을 수도 있어요." />
+        <SectionHeader title="권별 녹음 음원" subtitle="녹음 음성이 필요하면 받기를 눌러 원하는 권만 직접 저장할 수 있어요." />
         <Card className="divide-y divide-slate-200">
           {[1, 2, 3, 4, 5, 6, 7, 8].map((v) => <VolDownload key={v} vol={v} />)}
         </Card>

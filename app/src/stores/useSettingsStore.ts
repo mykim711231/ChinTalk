@@ -24,7 +24,7 @@ type S = {
   onboarded: boolean;
   studySource: StudySource;
   setStudySource: (source: StudySource) => void;
-  /** 접속 중 전체 음원을 자동으로 저장하고 중단된 다운로드를 이어받는다. */
+  /** 녹음 음성 모드에서 전체 음원을 자동 저장하고 중단된 다운로드를 이어받는다. */
   autoDownload: boolean;
   setAutoDownload: (v: boolean) => void;
   /** 데일리·편하게 듣기·마스터리에서 중국어 뒤에 한글 번역을 읽어 줌 */
