@@ -118,6 +118,7 @@ export default function PassivePage() {
     <main className="p-4 pb-28 space-y-4">
       <h1 className="text-xl font-bold inline-flex items-center gap-2"><Icon name="headphones" size={22} className="text-brand" /> 편하게 듣기</h1>
       <p className="text-sm text-slate-600">마스터리나 데일리로 <b>익숙해진 과</b>의 음원을 배경으로 반복해서 들어요. 화면을 꺼도 계속 재생돼요(기기·브라우저에 따라 제한될 수 있어요).</p>
+      <p className="text-xs text-slate-500">해금 방법: <b>학습</b> 메뉴에서 한 과의 <b>4단계 마스터리</b>를 달성하거나 <b>10분 데일리</b> 6단계를 끝내면 그 과가 자동으로 추가돼요.</p>
 
       {unlocked.length === 0 ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-5 text-center space-y-3">
@@ -125,7 +126,7 @@ export default function PassivePage() {
           <p className="text-sm">아직 해금된 음원이 없어요. 한 과의 <b>마스터리</b>나 <b>10분 데일리</b>를 마치면 여기에 나타나요.</p>
           <div className="flex justify-center gap-2">
             <Link to="/daily" className={btnBrand}><Icon name="timer" size={14} /> 10분 데일리</Link>
-            <Link to="/path" className={btn}>학습 경로</Link>
+            <Link to="/study" className={btn}>학습 메뉴</Link>
           </div>
         </div>
       ) : (

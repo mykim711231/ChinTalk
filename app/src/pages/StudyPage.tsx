@@ -52,7 +52,7 @@ export default function StudyPage() {
         <Icon name="headphones" size={26} className="text-brand flex-none" />
         <span className="min-w-0 flex-1">
           <b className="block">편하게 듣기</b>
-          <span className="block text-xs text-slate-500">해금한 과를 배경으로 반복 재생해요. (해금 {unlocked}과)</span>
+          <span className="block text-xs text-slate-500">마스터리·데일리를 마친 과가 해금돼 배경 재생돼요. (해금 {unlocked}과)</span>
         </span>
         <Icon name="arrowRight" size={18} className="text-slate-400" />
       </Link>

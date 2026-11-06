@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { loadLesson, loadMeta } from '../lib/contentLoader';
 import { speak, speakAsync, stopSpeak } from '../lib/tts';
-import { splitChunks } from '../lib/pinyin';
 import ChunkCard from '../components/ChunkCard';
 import { useSettingsStore } from '../stores/useSettingsStore';
 import { useProgressStore } from '../stores/useProgressStore';
@@ -52,17 +51,7 @@ export default function LessonPage() {
     for (let i = 0; i < lesson.text.length; i++) {
       if (token.current !== my) return;
       setPlaying(i);
-      if (breakLevel > 0) {
-        const chunks = splitChunks(lesson.text[i].zh, lesson.text[i].words ?? [], lesson.text[i].phrases ?? [], breakLevel as 1 | 2 | 3);
-        for (const c of chunks) {
-          if (token.current !== my) return;
-          await speakAsync(c);
-          if (token.current !== my) return;
-          await new Promise((r) => setTimeout(r, 400)); // 청크 간격
-        }
-      } else {
-        await speakAsync(lesson.text[i].zh);
-      }
+      await speakAsync(lesson.text[i].zh);
       if (token.current !== my) return;
       await new Promise((r) => setTimeout(r, 1000)); // 자동 연속 재생 간격
     }
@@ -122,20 +111,6 @@ export default function LessonPage() {
           <Icon name={playing >= 0 ? 'stop' : 'play'} size={14} /> {playing >= 0 ? '멈추기' : '전체 듣기'}
         </button>
       </div>
-      <div className="flex gap-2 mb-3">
-        <button className={chip(showZh)} onClick={() => toggle('showZh')}>
-          한자
-        </button>
-        <button className={chip(showPinyin)} onClick={() => toggle('showPinyin')}>
-          병음
-        </button>
-        <button className={chip(showKo)} onClick={() => toggle('showKo')}>
-          한글
-        </button>
-        <button className={chip(breakLevel > 0)} onClick={() => setBreakLevel(((breakLevel + 1) % 4) as 0 | 1 | 2 | 3)} aria-label="끊어 읽기">
-          {breakLevel === 0 ? '끊어읽기' : `끊어읽기 ${['단어', '구', '절'][breakLevel - 1]}`}
-        </button>
-      </div>
       <div className="flex gap-1 overflow-x-auto mb-3 border-b border-slate-200">
         {TABS.map(([k, label]) => (
           <button
@@ -149,6 +124,22 @@ export default function LessonPage() {
           </button>
         ))}
       </div>
+      {(tab === "text" || tab === "dialog") && (
+      <div className="flex flex-wrap gap-2 mb-3">
+        <button className={chip(showZh)} onClick={() => toggle('showZh')}>
+          한자
+        </button>
+        <button className={chip(showPinyin)} onClick={() => toggle('showPinyin')}>
+          병음
+        </button>
+        <button className={chip(showKo)} onClick={() => toggle('showKo')}>
+          한글
+        </button>
+        <button className={chip(breakLevel > 0)} onClick={() => setBreakLevel(((breakLevel + 1) % 4) as 0 | 1 | 2 | 3)} aria-label="의미단위 표시">
+          {breakLevel === 0 ? '의미단위 표시' : `의미단위 표시 ${['단어', '구', '절'][breakLevel - 1]}`}
+        </button>
+      </div>
+      )}
 
       {tab === 'text' && lesson.text.map((v, i) => (
         <div key={i} className={i === playing ? 'ring-2 ring-brand rounded-xl' : ''}><ChunkCard verse={v} /></div>
