@@ -10,11 +10,14 @@ const audioFiles = new Set(['zh', 'ko'].flatMap((lang) => Object.values(
 
 export default defineConfig({
   base: '/ChinTalk/',
-  define: { __APP_VERSION__: JSON.stringify(pkg.version) },
+  define: {
+    __APP_VERSION__: JSON.stringify(pkg.version),
+    __APP_BUILD__: JSON.stringify(process.env.GITHUB_SHA?.slice(0, 7) ?? `local-${new Date().toISOString().slice(0, 19)}`),
+  },
   plugins: [
     react(),
     VitePWA({
-      // 새 버전을 미리 저장하고 모든 앱 창을 닫은 다음 실행 때 자동 적용한다.
+      // 등록·화면 재시작은 직접 관리한다. 다른 탭이 열려 있어도 다음 실행은 새 버전을 사용한다.
       registerType: 'prompt',
       injectRegister: false,
       includeAssets: ['icons/icon.svg'],
@@ -34,7 +37,7 @@ export default defineConfig({
         // 전권 교재·사전·음원 목록은 설치와 버전 업데이트에 포함한다.
         globPatterns: ['**/*.{js,css,html,svg,webmanifest}', 'data/*.json'],
         cleanupOutdatedCaches: true,
-        skipWaiting: false,
+        skipWaiting: true,
         clientsClaim: true,
         runtimeCaching: [
           {

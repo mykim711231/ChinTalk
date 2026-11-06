@@ -11,6 +11,7 @@
     "verify:tts": "tsx scripts/verify-tts-coverage.ts",
     "test:meaning": "tsx --test scripts/meaning-units.test.ts",
     "test:study": "tsx --test scripts/study-content.test.ts",
+    "test:pwa": "npm run build && node scripts/pwa-updates.browser.cjs",
     "build": "npm run build:content && tsc --noEmit && vite build",
     "preview": "vite preview"
   },
@@ -29,6 +30,7 @@
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.20",
     "msedge-tts": "^2.1.1",
+    "playwright-core": "1.65.0",
     "postcss": "^8.4.45",
     "tailwindcss": "^3.4.10",
     "tsx": "^4.19.0",

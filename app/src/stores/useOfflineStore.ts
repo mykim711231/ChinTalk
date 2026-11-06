@@ -7,9 +7,10 @@ type OfflineState = {
   total: number;
   failed: number;
   updateReady: boolean;
+  updateState: 'idle' | 'checking' | 'downloading' | 'current' | 'ready' | 'applying' | 'offline' | 'error';
   playbackError: string | null;
 };
 
 export const useOfflineStore = create<OfflineState>(() => ({
-  core: 'preparing', audio: 'idle', done: 0, total: 0, failed: 0, updateReady: false, playbackError: null,
+  core: 'preparing', audio: 'idle', done: 0, total: 0, failed: 0, updateReady: false, updateState: 'idle', playbackError: null,
 }));

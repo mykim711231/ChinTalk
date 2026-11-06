@@ -7,6 +7,7 @@ import { speak, stopSpeak, ttsSupported } from '../lib/tts';
 import { pauseOfflineDownload } from '../lib/pwa';
 import { useOfflineStore } from '../stores/useOfflineStore';
 import OfflineStatus from '../components/OfflineStatus';
+import AppUpdate from '../components/AppUpdate';
 import {
   getStorageInfo, clearContentCaches, clearAllCaches,
   exportBackup, importBackup, resetAllUserData, type StorageInfo,
@@ -218,7 +219,12 @@ export default function SettingsPage() {
       </section>
 
       <section>
-        <SectionHeader title="자동 설치·오프라인 저장" subtitle="전권 교재·단어장은 자동 저장돼요. 새 버전은 자동으로 받아 다음 실행 때 적용해요." />
+        <SectionHeader title="앱 업데이트" subtitle="기존에 설치한 앱에서 계속 사용해요. 새로 설치할 필요 없어요." />
+        <Card className="p-4"><AppUpdate /></Card>
+      </section>
+
+      <section>
+        <SectionHeader title="자동 설치·오프라인 저장" subtitle="전권 교재·단어장은 자동 저장돼요." />
         <Card className="divide-y divide-slate-200 mb-3">
           <div className="p-4"><OfflineStatus /></div>
           {s.voiceMode === 'recorded' ? <Row label="녹음 음원 자동 저장" description="녹음 음성을 사용할 때 전체 녹음 음원을 받아 두고, 중단되면 이어받아요. Wi-Fi 사용을 권장해요.">

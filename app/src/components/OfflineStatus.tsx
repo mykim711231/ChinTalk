@@ -1,6 +1,7 @@
 import { useOfflineStore } from '../stores/useOfflineStore';
 import { useSettingsStore } from '../stores/useSettingsStore';
 import { resumeOfflineDownload, retryOfflineSetup } from '../lib/pwa';
+import AppUpdate from './AppUpdate';
 
 export default function OfflineStatus({ compact = false }: { compact?: boolean }) {
   const s = useOfflineStore();
@@ -28,7 +29,7 @@ export default function OfflineStatus({ compact = false }: { compact?: boolean }
         <p className="mt-1 text-xs text-slate-600">음원 {s.done.toLocaleString()}/{s.total.toLocaleString()}개 저장됨{s.failed ? ` · 실패 ${s.failed}개` : ''}</p>
         <progress aria-label="음원 저장 진행률" value={s.done} max={s.total} className="mt-1 h-2 w-full accent-brand" />
       </>}
-      {s.updateReady && <p className="mt-1 text-xs text-brand">새 버전을 받아 두었어요. ChinTalk 창을 모두 닫았다가 다시 열면 자동 적용돼요.</p>}
+      {compact && s.updateReady && <div className="mt-2"><AppUpdate compact /></div>}
       <div className="mt-2 flex flex-wrap gap-3 text-xs text-brand">
         {s.core === 'error' && <button type="button" onClick={() => void retryOfflineSetup()}>교재 다시 저장</button>}
         {recorded && s.core === 'ready' && s.audio === 'error' && <button type="button" onClick={() => { setAutoDownload(true); void resumeOfflineDownload(); }}>음원 다시 받기</button>}

@@ -12,6 +12,11 @@ let controller: AbortController | undefined;
 let preparing: Promise<void> | undefined;
 let started = false;
 let lastCheck = 0;
+let checking: Promise<void> | undefined;
+
+function updateAvailable(): void {
+  useOfflineStore.setState((s) => ({ updateReady: true, updateState: s.updateState === 'applying' ? 'applying' : 'ready' }));
+}
 
 function shouldDownloadAudio(): boolean {
   const { voiceMode, autoDownload } = useSettingsStore.getState();
@@ -90,10 +95,51 @@ function prepareOffline(): Promise<void> {
   return preparing;
 }
 
-export async function checkForUpdate(): Promise<void> {
-  if (!navigator.onLine || !registration || Date.now() - lastCheck < 60000) return;
+export function checkForUpdate(force = false): Promise<void> {
+  if (!navigator.onLine) {
+    if (force) useOfflineStore.setState({ updateState: 'offline' });
+    return Promise.resolve();
+  }
+  if (checking) return checking;
+  if (!force && (!registration || Date.now() - lastCheck < 60000)) return Promise.resolve();
   lastCheck = Date.now();
-  try { await registration.update(); } catch { /* 연결 복구 후 다시 확인한다. */ }
+  checking = (async () => {
+    useOfflineStore.setState({ updateState: 'checking' });
+    try {
+      if (!registration) await registerWorker();
+      if (!registration) throw new Error('registration');
+      if (registration.installing && !registration.active) {
+        useOfflineStore.setState({ updateState: 'downloading' });
+        return;
+      }
+      await registration.update();
+      if (registration.waiting || useOfflineStore.getState().updateReady) updateAvailable();
+      else useOfflineStore.setState({ updateState: registration.installing ? 'downloading' : 'current' });
+    } catch { useOfflineStore.setState({ updateState: 'error' }); }
+  })().finally(() => { checking = undefined; });
+  return checking;
+}
+
+/** 사용자가 적용을 눌렀을 때 이 화면만 다시 연다. 진도·설정·음원 캐시는 유지한다. */
+export async function applyAppUpdate(): Promise<void> {
+  if (!useOfflineStore.getState().updateReady || useOfflineStore.getState().updateState === 'applying') return;
+  useOfflineStore.setState({ updateState: 'applying' });
+  try {
+    // 예전 skipWaiting=false 워커가 대기 중인 경우도 처리한다.
+    const incoming = registration?.waiting ?? registration?.installing;
+    if (incoming && navigator.serviceWorker.controller !== incoming) await new Promise<void>((resolve, reject) => {
+      const finish = () => { clearTimeout(timeout); navigator.serviceWorker.removeEventListener('controllerchange', changed); resolve(); };
+      const changed = () => finish();
+      const timeout = window.setTimeout(() => {
+        navigator.serviceWorker.removeEventListener('controllerchange', changed);
+        reject(new Error('activation timeout'));
+      }, 15000);
+      navigator.serviceWorker.addEventListener('controllerchange', changed);
+      incoming.postMessage({ type: 'SKIP_WAITING' });
+      if (incoming.state === 'activated' && navigator.serviceWorker.controller === incoming) finish();
+    });
+    window.location.reload();
+  } catch { useOfflineStore.setState({ updateState: 'error' }); }
 }
 
 export async function retryOfflineSetup(): Promise<void> {
@@ -106,20 +152,32 @@ async function registerWorker(): Promise<void> {
     registration = await navigator.serviceWorker.register(`${B}sw.js`, { scope: B, updateViaCache: 'none' });
     const watch = (worker: ServiceWorker) => {
       worker.addEventListener('statechange', () => {
-        if (worker.state === 'installed' && registration?.active) useOfflineStore.setState({ updateReady: true });
-        if (worker.state === 'activated') void prepareOffline();
-        if (worker.state === 'redundant' && !registration?.active) useOfflineStore.setState({ core: 'error' });
+        if (worker.state === 'installing' && registration?.active) useOfflineStore.setState({ updateState: 'downloading' });
+        if (worker.state === 'installed' && registration?.active) updateAvailable();
+        if (worker.state === 'activated') {
+          if (!useOfflineStore.getState().updateReady) useOfflineStore.setState({ updateState: 'current' });
+          void prepareOffline();
+        }
+        if (worker.state === 'redundant') {
+          if (!registration?.active) useOfflineStore.setState({ core: 'error' });
+          else useOfflineStore.setState({ updateState: 'error' });
+        }
       });
     };
-    registration.addEventListener('updatefound', () => { if (registration?.installing) watch(registration.installing); });
+    registration.addEventListener('updatefound', () => {
+      if (registration?.installing) {
+        if (registration.active) useOfflineStore.setState({ updateState: 'downloading' });
+        watch(registration.installing);
+      }
+    });
     if (registration.installing) watch(registration.installing);
-    if (registration.waiting) useOfflineStore.setState({ updateReady: true });
+    if (registration.waiting) updateAvailable();
     if (registration.active) await prepareOffline();
     void checkForUpdate();
   } catch { useOfflineStore.setState({ core: 'error' }); }
 }
 
-/** 앱 실행·연결 복구 때 자동 준비. 새 버전은 사용 중인 모든 창을 닫으면 적용된다. */
+/** 새 버전은 자동 준비한다. 실행 중 화면은 유지하고 다음 실행 또는 적용 버튼으로 전환한다. */
 export function startOfflineFeatures(): void {
   if (started) return;
   started = true;
@@ -128,6 +186,12 @@ export function startOfflineFeatures(): void {
     return;
   }
   void navigator.storage?.persist?.().catch(() => false);
+  let previousController = navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    const current = navigator.serviceWorker.controller;
+    if (previousController && current && current !== previousController) updateAvailable();
+    previousController = current;
+  });
   void registerWorker();
   useSettingsStore.subscribe((next, previous) => {
     if (next.autoDownload === previous.autoDownload && next.voiceMode === previous.voiceMode) return;
