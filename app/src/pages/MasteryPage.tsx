@@ -1,16 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { loadLesson, loadMeta } from '../lib/contentLoader';
 import { speak, speakAsync, speakKoIfOn, stopSpeak } from '../lib/tts';
 import { recommendLesson } from "../lib/recommend";
 import { getMasteryResult, isUnlocked, useProgressStore } from '../stores/useProgressStore';
 import { useSettingsStore } from '../stores/useSettingsStore';
+import { useOfflineStore } from '../stores/useOfflineStore';
 import ChunkCard from '../components/ChunkCard';
 import Icon from '../components/Icon';
 import LessonSelect from '../components/LessonSelect';
-import type { Chunk, Lesson, LessonMeta, MasterySource, Verse } from '../types/lesson';
-
-type StudyLine = { verse: Verse; speaker?: string; section?: string };
+import type { Chunk, Lesson, LessonMeta, MasterySource } from '../types/lesson';
+import { studyLines, studySourceLabel, type StudyLine } from '../lib/studyContent';
+import { useStudySource } from '../hooks/useStudySource';
+import StudySourceSelector from '../components/StudySourceSelector';
 
 const STAGES = ['Blind', 'Script', 'Shadowing', 'Final'] as const;
 const btn = 'inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white text-sm font-semibold px-3 py-2 disabled:opacity-40';
@@ -29,6 +31,7 @@ function usePlayAll(lines: StudyLine[]) {
       setPlaying(i);
       await speakAsync(lines[i].verse.zh);
       if (token.current !== my) return;
+      if (useOfflineStore.getState().playbackError) { setPlaying(-1); return; }
       await speakKoIfOn(lines[i].verse.ko);
       if (token.current !== my) return;
       await new Promise((r) => setTimeout(r, 400));
@@ -49,14 +52,13 @@ function Blur({ on, children }: { on: boolean; children: React.ReactNode }) {
 
 export default function MasteryPage() {
   const { id = '' } = useParams();
-  const [params, setParams] = useSearchParams();
-  const source = params.get('source') === 'dialog' ? 'dialog' : 'text';
+  const { source, setSource } = useStudySource();
   return (
     <MasteryContent
       key={`${id}:${source}`}
       id={id}
       source={source}
-      onSourceChange={(next) => setParams(next === 'dialog' ? { source: next } : {})}
+      onSourceChange={setSource}
     />
   );
 }
@@ -72,11 +74,7 @@ function MasteryContent({ id, source, onSourceChange }: {
   const prog = useProgressStore();
   const { markMastered, setLast } = prog;
   const level = useSettingsStore((s) => s.level);
-  const lines = useMemo<StudyLine[]>(() => {
-    if (!lesson) return [];
-    return source === 'text' ? lesson.text.map((verse) => ({ verse }))
-      : lesson.dialogs.flatMap((d) => d.turns.map((t, i) => ({ ...t, section: i === 0 ? d.title : undefined })));
-  }, [lesson, source]);
+  const lines = useMemo(() => lesson ? studyLines(lesson, source) : [], [lesson, source]);
   const all = usePlayAll(lines);
   const nav = useNavigate();
   const [metas, setMetas] = useState<LessonMeta[]>([]);
@@ -106,7 +104,7 @@ function MasteryContent({ id, source, onSourceChange }: {
   if (lesson === null) return <main className="p-4">과를 찾을 수 없습니다. <Link to="/path" className="text-brand">목록으로</Link></main>;
 
   const finished = getMasteryResult(prog, lesson.id, source);
-  const sourceLabel = source === 'text' ? '본문' : '회화';
+  const sourceLabel = studySourceLabel(source);
   const playLabel = all.playing >= 0 ? '멈추기' : `${sourceLabel} 전체 듣기`;
   const trapsFor = (c: Chunk) =>
     lesson.traps.filter((t) => c.zh.includes(t.target) || c.pinyin.toLowerCase().includes(t.target.toLowerCase()));
@@ -119,21 +117,10 @@ function MasteryContent({ id, source, onSourceChange }: {
         {finished && <span className="text-xs rounded-full bg-green-100 text-green-800 px-2 py-0.5">{sourceLabel} 완료 · {finished.score}점</span>}
       </div>
 
-      <LessonSelect label="과 선택" metas={metas} value={lesson.id} recId={recommendLesson(metas, prog, level)?.id} isDone={(id) => isUnlocked(prog, id)} onChange={(v) => { all.stop(); nav(`/lesson/${v}/mastery${source === 'dialog' ? '?source=dialog' : ''}`); }} />
+      <LessonSelect label="과 선택" metas={metas} value={lesson.id} recId={recommendLesson(metas, prog, level)?.id} isDone={(id) => isUnlocked(prog, id)} onChange={(v) => { all.stop(); nav(`/lesson/${v}/mastery?source=${source}`); }} />
 
-      <div role="group" aria-label="마스터리 학습 내용" className="flex gap-2">
-        {(['text', 'dialog'] as const).map((value) => (
-          <button
-            key={value} type="button" aria-pressed={source === value}
-            disabled={value === 'text' ? !lesson.text.length : !lesson.dialogs.some((d) => d.turns.length)}
-            className={`${source === value ? btnBrand : btn} flex-1 justify-center`}
-            onClick={() => { if (source !== value) { all.stop(); onSourceChange(value); } }}
-          >
-            {value === 'text' ? '본문' : '회화'}
-          </button>
-        ))}
-      </div>
-      <p className="text-xs text-slate-500">선택한 {sourceLabel} 내용으로 4단계를 진행해요. 본문·회화를 바꾸면 1단계부터 시작해요.</p>
+      <StudySourceSelector value={source} lesson={lesson} onChange={(value) => { all.stop(); onSourceChange(value); }} />
+      <p className="text-xs text-slate-500">{sourceLabel} · {lines.length}문장으로 4단계를 진행해요. 대상을 바꾸면 1단계부터 시작해요.</p>
       {!lines.length && <p role="status" className="text-sm text-slate-500">등록된 {sourceLabel} 내용이 없어요. 다른 학습 내용을 선택해 주세요.</p>}
 
       <ol className="grid grid-cols-4 gap-1" aria-label="진행 단계">
@@ -270,7 +257,7 @@ function MasteryContent({ id, source, onSourceChange }: {
             <div role="status" className="rounded-xl border border-green-300 bg-green-50 p-3 text-sm space-y-2">
               <p><b>{sourceLabel} 마스터리 완료!</b> 이 과의 음원이 <b>편하게 듣기</b>에 해금되었어요.</p>
               <div className="flex gap-2">
-                <Link to="/passive" className={btn}><Icon name="headphones" size={16} /> 편하게 듣기</Link>
+                <Link to={`/passive?source=${source}`} className={btn}><Icon name="headphones" size={16} /> 편하게 듣기</Link>
                 <Link to="/path" className={btn}>학습 경로</Link>
               </div>
             </div>

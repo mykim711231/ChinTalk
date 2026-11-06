@@ -15,19 +15,21 @@ type P = {
   masteryBySource: Record<string, Partial<Record<MasterySource, MasteryResult>>>;
   /** 데일리 6단계 종료한 과 */
   dailyDone: Record<string, string>;
+  dailyBySource: Record<string, Partial<Record<MasterySource, string>>>;
   /** 학습한 날짜(로컬 YYYY-MM-DD) → 스트릭 계산 */
   days: Record<string, true>;
   markDone: (id: string) => void;
   markUndone: (id: string) => void;
   setLast: (id: string) => void;
   markMastered: (id: string, score: number, source?: MasterySource) => void;
-  markDaily: (id: string) => void;
+  markDaily: (id: string, source?: MasterySource) => void;
 };
 
 export const isUnlocked = (s: Pick<P, 'mastered' | 'dailyDone'>, id: string) => !!(s.mastered[id] || s.dailyDone[id]);
 
 export const getMasteryResult = (s: Pick<P, 'mastered' | 'masteryBySource'>, id: string, source: MasterySource) =>
-  s.masteryBySource[id]?.[source] ?? (source === 'text' && !s.masteryBySource[id] ? s.mastered[id] : undefined);
+  s.masteryBySource[id]?.[source] ?? (source !== 'all' ? s.masteryBySource[id]?.all : undefined)
+    ?? (source === 'text' && !s.masteryBySource[id] ? s.mastered[id] : undefined);
 
 /** 오늘(없으면 어제)부터 거꾸로 이어진 연속 일수 */
 export function calcStreak(days: Record<string, true>, today = new Date()): number {
@@ -43,6 +45,7 @@ export const useProgressStore = create<P>()(persist((set) => ({
   mastered: {},
   masteryBySource: {},
   dailyDone: {},
+  dailyBySource: {},
   days: {},
   markDone: (id) => set((s) => ({ done: { ...s.done, [id]: true } })),
   markUndone: (id) => set((s) => {
@@ -62,8 +65,13 @@ export const useProgressStore = create<P>()(persist((set) => ({
       days: { ...s.days, [at]: true },
     };
   }),
-  markDaily: (id) => set((s) => ({
-    dailyDone: { ...s.dailyDone, [id]: toLocalDateKey() },
-    days: { ...s.days, [toLocalDateKey()]: true },
-  })),
+  markDaily: (id, source = 'text') => set((s) => {
+    const at = toLocalDateKey();
+    const previous = s.dailyBySource[id] ?? (s.dailyDone[id] ? { text: s.dailyDone[id] } : {});
+    return {
+      dailyDone: { ...s.dailyDone, [id]: at },
+      dailyBySource: { ...s.dailyBySource, [id]: { ...previous, [source]: at } },
+      days: { ...s.days, [at]: true },
+    };
+  }),
 }), { name: 'chintalk-progress' }));

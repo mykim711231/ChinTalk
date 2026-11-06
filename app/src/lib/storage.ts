@@ -12,20 +12,35 @@ export async function getStorageInfo(): Promise<StorageInfo> {
   };
 }
 
-/** 학습 데이터(mp3·본문 JSON) 런타임 캐시만 삭제. 진도/설정(localStorage)은 유지. */
-export async function clearContentCaches(): Promise<number> {
+/** 같은 호스트의 다른 앱(SMCB 등)의 캐시와 기록은 삭제하지 않는다. */
+async function clearScopedCaches(includePrecache: boolean): Promise<number> {
   if (typeof caches === 'undefined') return 0;
+  const prefix = new URL(import.meta.env.BASE_URL, location.origin).href;
   const names = await caches.keys();
-  const targets = names.filter((n) => !n.startsWith('workbox-precache'));
-  await Promise.all(targets.map((n) => caches.delete(n)));
-  return targets.length;
+  let count = 0;
+  for (const name of names) {
+    if (!includePrecache && name.startsWith('workbox-precache')) continue;
+    const cache = await caches.open(name);
+    const requests = (await cache.keys()).filter((request) => request.url.startsWith(prefix));
+    if (!requests.length && !name.startsWith('chintalk-')) continue;
+    await Promise.all(requests.map((request) => cache.delete(request)));
+    if (!(await cache.keys()).length) await caches.delete(name);
+    count++;
+  }
+  return count;
 }
 
+/** 기본 교재·단어장 및 학습 기록은 유지하고 다운로드한 음원을 지운다. */
+export const clearContentCaches = () => clearScopedCaches(false);
+
 export async function clearAllCaches(): Promise<number> {
-  if (typeof caches === 'undefined') return 0;
-  const names = await caches.keys();
-  await Promise.all(names.map((n) => caches.delete(n)));
-  return names.length;
+  const count = await clearScopedCaches(true);
+  if ('serviceWorker' in navigator) {
+    const scope = new URL(import.meta.env.BASE_URL, location.origin).href;
+    const registration = await navigator.serviceWorker.getRegistration(scope);
+    if (registration?.scope === scope) await registration.unregister();
+  }
+  return count;
 }
 
 const KEYS = ['chintalk-settings', 'chintalk-progress', 'chintalk-highlight'];

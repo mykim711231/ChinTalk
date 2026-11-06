@@ -20,6 +20,11 @@ export default function InstallModal() {
 
   const eligible = onboarded && !isStandalone() && !isInAppBrowser().kind && Date.now() - installDismissedAt > WEEK;
   useEffect(() => {
+    const installed = () => { setOpen(false); setEvt(null); };
+    window.addEventListener('appinstalled', installed);
+    return () => window.removeEventListener('appinstalled', installed);
+  }, []);
+  useEffect(() => {
     if (!eligible || !(evt || isIOS())) return;
     const t = window.setTimeout(() => setOpen(true), 1200);
     return () => window.clearTimeout(t);
@@ -41,7 +46,7 @@ export default function InstallModal() {
           <Icon name="download" size={22} className="text-brand" />
           <h3 id="inst-title" className="text-lg font-bold">앱으로 설치하기</h3>
         </div>
-        <p className="text-sm text-slate-700">홈 화면에 추가하면 앱처럼 열리고, 한 번 들은 음원은 인터넷 없이도 재생돼요.</p>
+        <p className="text-sm text-slate-700">교재·단어장은 자동으로 저장하고 새 버전도 자동으로 받아 둬요. 기기 음성을 오프라인에서 쓰려면 스마트폰에 중국어 음성팩이 필요해요.</p>
         {evt ? (
           <button type="button" onClick={() => void install()} className="w-full mt-4 rounded-full bg-brand text-white font-semibold py-3">설치</button>
         ) : (

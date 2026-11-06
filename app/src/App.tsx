@@ -16,6 +16,8 @@ import SettingsPage from './pages/SettingsPage';
 import AboutPage from './pages/AboutPage';
 import HelpPage from './pages/HelpPage';
 import { useSettingsStore } from './stores/useSettingsStore';
+import InstallModal from './components/InstallModal';
+import OfflineStatus from './components/OfflineStatus';
 
 export default function App() {
   const fontSize = useSettingsStore((s) => s.fontSize);
@@ -34,6 +36,7 @@ export default function App() {
   return (
     <div className="mx-auto max-w-xl min-h-screen">
       {!bare && <TopBar />}
+      <OfflineStatus compact />
       <Routes>
         <Route path="/" element={home} />
         <Route path="/onboarding" element={<OnboardingPage />} />
@@ -51,6 +54,7 @@ export default function App() {
       {!bare && <Footer />}
       {!bare && <BottomNav />}
       <WordSheet />
+      <InstallModal />
     </div>
   );
 }

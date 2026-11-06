@@ -7,6 +7,7 @@ import type { Lesson, Verse, Chunk, DialogSection, LessonMeta } from '../src/typ
 import { splitSyllables } from '../src/lib/pinyin';
 import { Jieba } from '@node-rs/jieba';
 import { dict as jiebaDict } from '@node-rs/jieba/dict';
+import { meaningUnitEnds } from './meaning-units';
 const jieba = Jieba.withDict(jiebaDict);
 // 사용자 사전: jieba가 쪼개는 인사말·인명·지명·합성어를 한 단어로 고정
 const USER_WORDS = [
@@ -37,9 +38,13 @@ const USER_VERBS = [
   '请客', '点菜', '拍照', '购物', '取钱', '存钱', '换钱', '挂号', '排队', '理发', '结账', '退房', '入住',
   '登机', '起飞', '降落', '转机', '迷路', '问路', '租车', '还车', '加油', '签字', '订票', '回家', '出门', '打车', '开车', '爬山', '做饭', '逛街',
 ];
+const wordTag = (word: string) => {
+  const tagged = jieba.tag(word);
+  return tagged.length === 1 && tagged[0].word === word ? tagged[0].tag || 'n' : 'n';
+};
 const USER_DICT = [
-  ...USER_WORDS.map(w => `${w} 100000`),
-  ...USER_VERBS.map(w => `${w} 100000`),
+  ...USER_WORDS.map(w => `${w} 100000 ${wordTag(w)}`),
+  ...USER_VERBS.map(w => `${w} 100000 v`),
 ].join('\n');
 jieba.loadDict(new TextEncoder().encode(USER_DICT));
 const VERB_LIKE = new Set(USER_VERBS);
@@ -51,14 +56,20 @@ mkdirSync(OUT, { recursive: true });
 
 // 교재 주요 단어(### N. 한자 / 병음 …)를 jieba 사용자 사전에 넣어 교재의 단어 단위를 유지한다
 {
-  const ws = new Set<string>();
+  const ws = new Map<string, string>();
   for (let v = 1; v <= 8; v++) {
     const d = join(SRC, `vol${v}`);
     for (const f of readdirSync(d).filter(x => x.endsWith('.md'))) {
-      for (const m of readFileSync(join(d, f), 'utf8').matchAll(/^###\s*\d+\.\s*([一-鿿]{2,6})\s*\//gm)) ws.add(m[1]);
+      for (const m of readFileSync(join(d, f), 'utf8').matchAll(/^###\s*\d+\.\s*([一-鿿]{2,12})\s*\/[^\n]+/gm)) {
+        const pos = m[0].split(/\s+\/\s+/)[2] ?? '';
+        const tags: [RegExp, string][] = [[/대명사|代词|pron\./i, 'r'], [/동사|动词|\bv\./i, 'v'],
+          [/형용사|形容词|adj\./i, 'a'], [/부사|副词|adv\./i, 'd'], [/개사|전치사|介词|prep\./i, 'p'],
+          [/접속사|连词|conj\./i, 'c'], [/양사|量词/, 'q'], [/수사|数词|num\./i, 'm'], [/명사|名词|\bn\./i, 'n']];
+        ws.set(m[1], tags.find(([pattern]) => pattern.test(pos))?.[1] ?? wordTag(m[1]));
+      }
     }
   }
-  jieba.loadDict(Buffer.from([...ws].map(w => `${w} 100000`).join('\n')));
+  jieba.loadDict(Buffer.from([...ws].map(([word, tag]) => `${word} 100000 ${tag}`).join('\n')));
 }
 
 const levelOf = (vol: number) => (Math.ceil(vol / 2) as 1 | 2 | 3 | 4);
@@ -71,7 +82,7 @@ function makeVerse(lessonId: string, zh: string, pinyin: string, ko: string): Ve
   const chunks: Chunk[] = aligned
     ? z.map((zz, i) => ({ id: `${lessonId}_${sha(zz)}`, zh: zz.trim(), pinyin: p[i].trim(), ko: k[i].trim() }))
     : [{ id: `${lessonId}_${sha(zh)}`, zh: zh.replace(/／/g, ''), pinyin: pinyin.replace(/／/g, ''), ko: ko.replace(/／/g, '') }];
-  const seg = segmentTokens(zh.replace(/／/g, ''));
+  const seg = segmentTokens(zh.replace(/／/g, ''), zh);
   return { zh: zh.replace(/／/g, ''), pinyin: pinyin.replace(/／/g, ''), ko: ko.replace(/／/g, ''), chunks, words: seg.words, phrases: seg.phrases };
 }
 
@@ -96,43 +107,8 @@ function extractWords(zh: string, pinyin: string): { zh: string; py: string }[] 
 
 // ── 형태소 분절 + 구(phrase) 묶음 ──
 const isHanChar = (c: string) => /[\u4e00-\u9fff]/.test(c);
-const NOUN = new Set(['n', 'nr', 'ns', 'nt', 'nz', 'ng', 'an']);
-const VERB = new Set(['v', 'vd', 'vn']);
-const ADJ = new Set(['a', 'ad']);
-const NUM = new Set(['m', 'q']);
-const ASPECT = new Set(['ul', 'uz', 'ug']); // 了/着/过
-const DE = new Set(['uj']); // 的
-const PREP_LIKE = new Set('将把被在对向从给为于往朝沿凭靠比按按照根据通过经过'.split(''));
-// 지시사: 뒤의 양사·명사와 묶음 (这批, 那个, 每个)
-const DEMO = new Set('这那此该每各某'.split(''));
-// 양사(量词) 글자: jieba가 号·个·点 등을 수사(m)로 태깅하므로 글자로 판별
-const MEASURE = new Set('点个位岁天年月号日时分秒次遍件张支只条双间部款台辆本杯碗瓶斤米元块毛科门路楼层节里'.split(''));
-const isMeasureWord = (w: string) => w.length >= 1 && w.length <= 2 && MEASURE.has(w[0]);
-// 동량보어(동사 빈도): 동사 뒤에 붙고, 뒤 명사와는 병합하지 않음 (汇报一下)
-const VERB_MEASURE = new Set(['一下', '一遍', '一次', '一回', '一趟', '一番']);
-// 정도부사(형용사·동사에 긴밀히 붙음) — 문장부사(就·又·也·都·还 등)는 붙지 않음
-const DEGREE_ADV = new Set(['很', '非常', '太', '十分', '更', '最', '比较', '相当', '特别', '挺', '格外', '尤其', '更加', '稍微', '有点儿', '有点']);
-// 결과보어(동사 뒤에 붙어 결과를 나타냄)
-const RESULT_COMP = new Set(['完', '好', '到', '见', '懂', '会', '开', '住', '清', '清楚', '明白', '晚', '早', '错', '对', '通', '熟', '成', '掉', '动', '满', '断', '坏']);
-
-function mergeable(pw: string, pt: string, nw: string, nt: string): boolean {
-  if (pt === 'p' || (pw.length === 1 && PREP_LIKE.has(pw))) {
-    if (nt === 'r' || NOUN.has(nt) || NUM.has(nt) || DE.has(nt)) return true;
-  }
-  if (NUM.has(pt) && NOUN.has(nt) && !VERB_LIKE.has(nw) && !VERB_MEASURE.has(pw)) return true; // 수사+명사 (两个弟弟; 见面·一下 제외)
-  if (NUM.has(pt) && isMeasureWord(nw)) return true;      // 수사+양사 (二十五号)
-  if (VERB.has(pt) && VERB_MEASURE.has(nw)) return true;  // 동사+동량보어 (汇报一下)
-  if (VERB.has(pt) && RESULT_COMP.has(nw)) return true;   // 동사+결과보어 (来晚, 做完, 听懂)
-  if (DEMO.has(pw) && (NUM.has(nt) || NOUN.has(nt))) return true; // 지시사+양사·명사 (这批, 那个)
-  if (DEGREE_ADV.has(pw) && (VERB.has(nt) || ADJ.has(nt))) return true; // 정도부사+동사·형용사 (非常吸引; jieba가 很을 zg로 태깅해도 단어로 판별)
-  if (VERB.has(pt) && ASPECT.has(nt)) return true;
-  if ((NOUN.has(pt) || pt === 'r' || ADJ.has(pt) || NUM.has(pt)) && DE.has(nt)) return true;
-  if (DE.has(pt) && (NOUN.has(nt) || nt === 'r')) return true;
-  return false;
-}
-
-/** jieba 분절(단어) + 품사 기반 구(phrase) 묶음 → 끝 인덱스(배타) 배열 */
-function segmentTokens(zh: string): { words: number[]; phrases: number[] } {
+/** 분절 결과로 의미 단위를 계산한다. 모든 위치는 구두점 포함 끝 인덱스(배타). */
+function segmentTokens(zh: string, marked?: string): { words: number[]; phrases: number[] } {
   const raw = jieba.tag(zh) as { word: string; tag: string }[];
   // 儿화: '点|儿发' 처럼 儿 이 다음 토큰 앞에 붙으면 앞 토큰 뒤로 옮긴다
   const tokens: { word: string; tag: string }[] = [];
@@ -145,7 +121,7 @@ function segmentTokens(zh: string): { words: number[]; phrases: number[] } {
   const hw: { w: string; end: number; tag: string }[] = [];
   let hi = 0;
   for (const t of tokens) {
-    // 인덱스는 구두점 포함 글자 기준(앱의 splitChunks/breakPositions 와 동일)
+    // 인덱스는 구두점 포함 글자 기준(앱의 breakPositions와 동일)
     hi += [...t.word].length;
     if (![...t.word].some(isHanChar)) {
       // 구두점은 앞 단어에 붙여 '，' 앞에서만 끊기게 한다
@@ -155,14 +131,7 @@ function segmentTokens(zh: string): { words: number[]; phrases: number[] } {
     hw.push({ w: t.word, end: hi, tag: t.tag });
   }
   const words = hw.map(x => x.end);
-  const phrases: number[] = [];
-  let i = 0;
-  while (i < hw.length) {
-    let j = i;
-    while (j + 1 < hw.length && mergeable(hw[j].w, hw[j].tag, hw[j + 1].w, hw[j + 1].tag)) j++;
-    phrases.push(hw[j].end);
-    i = j + 1;
-  }
+  const phrases = meaningUnitEnds(zh, tokens.map((t) => ({ ...t, tag: VERB_LIKE.has(t.word) ? 'v' : t.tag })), marked);
   return { words, phrases };
 }
 

@@ -1,11 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { loadLesson, loadMeta } from '../lib/contentLoader';
-import { getPassiveAudio, playMp3Only, stopPassive } from '../lib/tts';
+import { playPassive, stopPassive } from '../lib/tts';
 import { isUnlocked, useProgressStore } from '../stores/useProgressStore';
 import { useSettingsStore } from '../stores/useSettingsStore';
+import { useOfflineStore } from '../stores/useOfflineStore';
 import Icon from '../components/Icon';
 import type { LessonMeta } from '../types/lesson';
+import { studyLines, studySourceLabel } from '../lib/studyContent';
+import { useStudySource } from '../hooks/useStudySource';
+import StudySourceSelector from '../components/StudySourceSelector';
 
 type Mode = 'one' | 'all' | 'shuffle';
 const MODES: { v: Mode; l: string; icon: string }[] = [
@@ -16,11 +20,13 @@ const MODES: { v: Mode; l: string; icon: string }[] = [
 const btn = 'inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white text-sm font-semibold px-3 py-2 disabled:opacity-40';
 const btnBrand = 'inline-flex items-center gap-1.5 rounded-full bg-brand text-white text-sm font-semibold px-4 py-2 disabled:opacity-40';
 
-/** §6.8 편하게 듣기 — 해금(마스터리/데일리 완료)한 과만, mp3 전용, 잠금화면 재생 컨트롤 */
+/** 해금한 과의 본문·회화를 선택한 음성 방식으로 반복 재생한다. */
 export default function PassivePage() {
+  const { source, setSource } = useStudySource();
   const [meta, setMeta] = useState<LessonMeta[]>([]);
   const prog = useProgressStore();
   const rate = useSettingsStore((s) => s.ttsRate);
+  const voiceMode = useSettingsStore((s) => s.voiceMode);
   const [mode, setMode] = useState<Mode>('all');
   const [cur, setCur] = useState<string | null>(null);
   const [playing, setPlaying] = useState(false);
@@ -59,40 +65,46 @@ export default function PassivePage() {
     let id: string | null = startId;
     setPlaying(true);
     setNote(null);
+    let emptyLessons = 0;
     while (id && token.current === my) {
       const m = listRef.current.find((x) => x.id === id);
       const lesson = await loadLesson(id);
       if (!lesson || !m || token.current !== my) break;
       setCur(id);
       if ('mediaSession' in navigator) {
-        navigator.mediaSession.metadata = new MediaMetadata({ title: `${lesson.no}. ${lesson.titleZh}`, artist: 'ChinTalk', album: `Vol.${lesson.vol}` });
+        navigator.mediaSession.metadata = new MediaMetadata({ title: `${lesson.no}. ${lesson.titleZh} · ${studySourceLabel(source)}`, artist: 'ChinTalk', album: `Vol.${lesson.vol}` });
         navigator.mediaSession.playbackState = 'playing';
       }
       let played = 0;
-      for (const v of lesson.text) {
+      for (const { verse: v } of studyLines(lesson, source)) {
         if (token.current !== my) return;
-        if (await playMp3Only(v.zh, rate)) played++;
+        if (await playPassive(v.zh, rate)) played++;
         if (token.current !== my) return;
+        if (useOfflineStore.getState().playbackError) { stop(); return; }
         if (useSettingsStore.getState().koVoice) {
           await new Promise((r) => setTimeout(r, 300));
           if (token.current !== my) return;
-          await playMp3Only(v.ko, 1, 'ko');
+          await playPassive(v.ko, 1, 'ko');
           if (token.current !== my) return;
         }
         await new Promise((r) => setTimeout(r, 700));
       }
       if (token.current !== my) return;
-      if (!played) setNote('이 과는 아직 음원(mp3)이 없어 건너뛰었어요.');
+      if (!played) setNote('이 과에서 선택한 대상을 재생하지 못했어요. 다른 과나 대상을 선택해 주세요.');
+      emptyLessons = played ? 0 : emptyLessons + 1;
       const list = listRef.current;
       const mo = modeRef.current;
       if (mo === 'one' && played) id = id;
       else if (!list.length) id = null;
       else if (mo === 'shuffle') id = list[Math.floor(Math.random() * list.length)].id;
       else id = list[(list.findIndex((x) => x.id === id) + 1) % list.length].id;
-      if (list.length === 1 && !played) break; // 재생할 음원이 하나도 없으면 무한 루프 방지
+      if (emptyLessons >= list.length) break; // 선택한 대상이 없는 과만 있을 때 무한 반복하지 않는다.
     }
-    if (token.current === my) setPlaying(false);
-  }, [rate]);
+    if (token.current === my) {
+      setPlaying(false);
+      if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
+    }
+  }, [rate, source, stop]);
 
   // 잠금화면/알림 컨트롤
   useEffect(() => {
@@ -105,7 +117,7 @@ export default function PassivePage() {
       void playFrom(list[(i + d + list.length) % list.length].id);
     };
     ms.setActionHandler('pause', stop);
-    ms.setActionHandler('play', () => { const a = getPassiveAudio(); if (a.src && a.paused && !a.ended) { void a.play(); setPlaying(true); } else if (cur) void playFrom(cur); });
+    ms.setActionHandler('play', () => { if (cur) void playFrom(cur); });
     ms.setActionHandler('nexttrack', () => step(1));
     ms.setActionHandler('previoustrack', () => step(-1));
     return () => { (['pause', 'play', 'nexttrack', 'previoustrack'] as const).forEach((a) => ms.setActionHandler(a, null)); };
@@ -117,7 +129,9 @@ export default function PassivePage() {
   return (
     <main className="p-4 pb-28 space-y-4">
       <h1 className="text-xl font-bold inline-flex items-center gap-2"><Icon name="headphones" size={22} className="text-brand" /> 편하게 듣기</h1>
-      <p className="text-sm text-slate-600">마스터리나 데일리로 <b>익숙해진 과</b>의 음원을 배경으로 반복해서 들어요. 화면을 꺼도 계속 재생돼요(기기·브라우저에 따라 제한될 수 있어요).</p>
+      <StudySourceSelector value={source} onChange={(value) => { stop(); setNote(null); setSource(value); }} />
+      <p className="text-sm text-brand">재생 대상: {studySourceLabel(source)}{source === 'all' ? ' (본문 다음 회화 순서)' : ''}</p>
+      <p className="text-sm text-slate-600">마스터리나 데일리로 <b>익숙해진 과</b>를 반복해서 들어요. {voiceMode === 'device' ? '기기 음성은 화면을 켜 둔 상태에서 사용해 주세요.' : '녹음 음성은 화면을 꺼도 재생할 수 있어요(기기·브라우저에 따라 제한될 수 있어요).'}</p>
       <p className="text-xs text-slate-500">해금 방법: <b>학습</b> 메뉴에서 한 과의 <b>4단계 마스터리</b>를 달성하거나 <b>10분 데일리</b> 6단계를 끝내면 그 과가 자동으로 추가돼요.</p>
 
       {unlocked.length === 0 ? (
@@ -125,7 +139,7 @@ export default function PassivePage() {
           <Icon name="lock" size={32} className="mx-auto text-slate-400" />
           <p className="text-sm">아직 해금된 음원이 없어요. 한 과의 <b>마스터리</b>나 <b>10분 데일리</b>를 마치면 여기에 나타나요.</p>
           <div className="flex justify-center gap-2">
-            <Link to="/daily" className={btnBrand}><Icon name="timer" size={14} /> 10분 데일리</Link>
+            <Link to={`/daily?source=${source}`} className={btnBrand}><Icon name="timer" size={14} /> 10분 데일리</Link>
             <Link to="/study" className={btn}>학습 메뉴</Link>
           </div>
         </div>

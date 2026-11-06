@@ -4,7 +4,6 @@ import { loadMeta, loadVol, LEVEL_NAMES } from '../lib/contentLoader';
 import { dayIndex, recommendLesson } from '../lib/recommend';
 import { speak } from '../lib/tts';
 import { useHighlightStore } from '../stores/useHighlightStore';
-import InstallModal from '../components/InstallModal';
 import type { Verse } from '../types/lesson';
 import { isInAppBrowser, isIOS, isStandalone } from '../lib/inapp';
 import { calcStreak, isUnlocked, useProgressStore } from '../stores/useProgressStore';
@@ -91,7 +90,7 @@ export default function HomePage() {
       <section className="rounded-2xl bg-brand text-white p-5 shadow-sm">
         <p className="text-xs opacity-80">중국어 구조화 듣기</p>
         <h1 className="text-2xl font-extrabold mt-0.5">소리로 배우는 중국어</h1>
-        <p className="text-sm opacity-90 mt-1">문장을 의미 단위로 쪼개 듣고, 한자·병음·한글을 켜고 끄며 따라 말하세요.</p>
+        <p className="text-sm opacity-90 mt-1">문장의 의미 단위를 확인하고, 한자·병음·한글을 켜고 끄며 듣고 따라 말하세요.</p>
         <div className="flex flex-wrap gap-2 mt-4">
           <Link to={next ? `/lesson/${next.id}` : '/path'} className="inline-flex items-center gap-1.5 rounded-full bg-white text-brand font-semibold text-sm px-4 py-2">
             <Icon name="speaker" size={16} /> 이어서 학습 <Icon name="arrowRight" size={14} />
@@ -197,7 +196,6 @@ export default function HomePage() {
         <span className="flex-1"><b className="block">편하게 듣기</b><span className="text-sm text-slate-500">해금된 음원 {unlockedCount}과</span></span>
         <Icon name="chevronRight" size={16} className="text-slate-400" />
       </Link>
-      <InstallModal />
       {qr && <InviteQrModal url={appUrl} onClose={() => setQr(false)} />}
     </main>
   );

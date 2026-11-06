@@ -5,6 +5,7 @@ import { speak, speakAsync, stopSpeak } from '../lib/tts';
 import ChunkCard from '../components/ChunkCard';
 import { useSettingsStore } from '../stores/useSettingsStore';
 import { getMasteryResult, useProgressStore } from '../stores/useProgressStore';
+import { useOfflineStore } from '../stores/useOfflineStore';
 import Icon from '../components/Icon';
 import type { Lesson, LessonMeta } from '../types/lesson';
 
@@ -21,7 +22,7 @@ export default function LessonPage() {
   const { id = '' } = useParams();
   const [lesson, setLesson] = useState<Lesson | null | undefined>(undefined);
   const [tab, setTab] = useState<Tab>('text');
-  const { showZh, showPinyin, showKo, breakLevel, toggle, setBreakLevel } = useSettingsStore();
+  const { showZh, showPinyin, showKo, showMeaningUnits, toggle } = useSettingsStore();
   const progress = useProgressStore();
   const { done, markDone, setLast } = progress;
   const [meta, setMeta] = useState<LessonMeta[]>([]);
@@ -60,6 +61,7 @@ export default function LessonPage() {
       setPlaying(i);
       await speakAsync(playableVerses[i].zh);
       if (token.current !== my) return;
+      if (useOfflineStore.getState().playbackError) { setPlaying(-1); return; }
       await new Promise((r) => setTimeout(r, 1000)); // 자동 연속 재생 간격
     }
     if (token.current === my) setPlaying(-1);
@@ -121,7 +123,7 @@ export default function LessonPage() {
         <span lang="zh-Latn-pinyin" className="reading-pinyin">{lesson.titlePinyin}</span> · {lesson.titleKo}
       </div>
       <div className="flex flex-wrap gap-2 mb-3">
-        <button type="button" disabled={!canDisplay || !playableVerses.length} onClick={() => nav(`/lesson/${lesson.id}/mastery${masterySource === 'dialog' ? '?source=dialog' : ''}`)} title={!canDisplay ? '본문·회화 탭에서 사용할 수 있어요.' : undefined} className="inline-flex items-center gap-1.5 rounded-full bg-brand text-white text-sm font-semibold px-3 py-1 disabled:opacity-40 disabled:cursor-not-allowed">
+        <button type="button" disabled={!canDisplay || !playableVerses.length} onClick={() => nav(`/lesson/${lesson.id}/mastery?source=${masterySource}`)} title={!canDisplay ? '본문·회화 탭에서 사용할 수 있어요.' : undefined} className="inline-flex items-center gap-1.5 rounded-full bg-brand text-white text-sm font-semibold px-3 py-1 disabled:opacity-40 disabled:cursor-not-allowed">
           <Icon name="target" size={14} /> 4단계 마스터리{masteryResult ? ' (완료)' : ''}
         </button>
         <button type="button" disabled={!playableVerses.length} onClick={() => void playAll()} className="inline-flex items-center gap-1.5 rounded-full border border-brand text-brand text-sm font-semibold px-3 py-1 disabled:opacity-40 disabled:cursor-not-allowed">
@@ -151,8 +153,8 @@ export default function LessonPage() {
         <button type="button" disabled={!canDisplay} aria-pressed={showKo} className={chip(showKo)} onClick={() => toggle('showKo')}>
           한글
         </button>
-        <button type="button" disabled={!canDisplay} aria-pressed={breakLevel > 0} className={chip(breakLevel > 0)} onClick={() => setBreakLevel(((breakLevel + 1) % 4) as 0 | 1 | 2 | 3)} aria-label="의미단위 표시">
-          {breakLevel === 0 ? '의미단위 표시' : `의미단위 표시 ${['단어', '구', '절'][breakLevel - 1]}`}
+        <button type="button" disabled={!canDisplay} aria-pressed={showMeaningUnits} className={chip(showMeaningUnits)} onClick={() => toggle('showMeaningUnits')} aria-label="의미단위 표시">
+          의미단위 표시
         </button>
       </div>
 

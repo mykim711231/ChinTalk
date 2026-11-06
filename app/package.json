@@ -9,6 +9,8 @@
     "build:content": "tsx scripts/build-content.ts",
     "build:tts": "tsx scripts/build-tts.ts",
     "verify:tts": "tsx scripts/verify-tts-coverage.ts",
+    "test:meaning": "tsx --test scripts/meaning-units.test.ts",
+    "test:study": "tsx --test scripts/study-content.test.ts",
     "build": "npm run build:content && tsc --noEmit && vite build",
     "preview": "vite preview"
   },

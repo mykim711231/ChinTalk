@@ -115,31 +115,10 @@ export function wordEnds(zh: string, pinyin: string): number[] {
   return ends;
 }
 
-/**
- * 끊어 읽기 위치(해당 글자 뒤에 / 표시) 계산. words=단어 경계, phrases=구 경계(끝 인덱스, 배타).
- * level 1=단어, 2=구, 3=절(구두점)
- */
-export function breakPositions(zh: string, words: number[], phrases: number[], level: 1 | 2 | 3): Set<number> {
+/** 교재의 의미 단위 끝 위치(배타)를 화면의 / 표시 위치로 바꾼다. */
+export function breakPositions(zh: string, ends: number[]): Set<number> {
   const set = new Set<number>();
   const chars = [...zh];
-  if (level === 3) {
-    chars.forEach((c, i) => { if (/[，、；：,;:]/.test(c)) set.add(i); });
-    return set;
-  }
-  const ends = level === 1 ? words : phrases;
   for (const e of ends) if (e > 0 && e < chars.length) set.add(e - 1);
   return set;
-}
-
-/** 문장을 끊어 읽기 단위(chunk)로 나눈다. level 1=단어, 2=구, 3=절 */
-export function splitChunks(zh: string, words: number[], phrases: number[], level: 1 | 2 | 3): string[] {
-  const chars = [...zh];
-  const breaks = breakPositions(zh, words, phrases, level);
-  const chunks: string[] = [];
-  let start = 0;
-  chars.forEach((_, i) => {
-    if (breaks.has(i)) { chunks.push(chars.slice(start, i + 1).join('')); start = i + 1; }
-  });
-  if (start < chars.length) chunks.push(chars.slice(start).join(''));
-  return chunks;
 }

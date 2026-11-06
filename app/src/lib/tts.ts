@@ -1,5 +1,6 @@
 // 1차: 사전 합성 mp3 (manifest 조회) / 2차: Web Speech 폴백 (§9.1)
 import { useSettingsStore } from '../stores/useSettingsStore';
+import { useOfflineStore } from '../stores/useOfflineStore';
 const B = import.meta.env.BASE_URL;
 // scripts/tts-texts.ts 의 normalizeTts 와 동일해야 한다
 const normalize = (s: string) => s.replace(/\s+/g, ' ').trim();
@@ -42,9 +43,23 @@ export function stopSpeak() {
 }
 
 function speakFallback(text: string, rate: number, done?: () => void, lang = 'zh-CN') {
-  if (!ttsSupported()) return done?.();
+  if (!ttsSupported()) {
+    useOfflineStore.setState({ playbackError: '이 브라우저는 기기 음성을 지원하지 않아요. 녹음 음성을 선택해 주세요.' });
+    return done?.();
+  }
+  const voices = window.speechSynthesis.getVoices().filter((v) => v.lang.toLowerCase().startsWith(lang.slice(0, 2)));
+  const selected = voices.find((v) => v.voiceURI === useSettingsStore.getState().ttsVoiceUri);
+  const available = navigator.onLine ? voices : voices.filter((v) => v.localService);
+  const voice = selected && (navigator.onLine || selected.localService) ? selected
+    : available.find((v) => v.lang.toLowerCase().replace('_', '-') === lang.toLowerCase() && v.localService)
+      ?? available.find((v) => v.localService) ?? available[0];
+  if (!navigator.onLine && !voice) {
+    useOfflineStore.setState({ playbackError: '오프라인 기기 음성이 없어요. 스마트폰에 해당 언어의 음성팩을 설치하거나 저장한 녹음 음성을 선택해 주세요.' });
+    return done?.();
+  }
   const u = new SpeechSynthesisUtterance(text);
   u.lang = lang;
+  if (voice) u.voice = voice;
   u.rate = rate;
   if (done) { u.onend = done; u.onerror = done; }
   window.speechSynthesis.speak(u);
@@ -53,8 +68,10 @@ function speakFallback(text: string, rate: number, done?: () => void, lang = 'zh
 /** 재생이 끝나거나(또는 stopSpeak 로 중단되면) resolve 된다. */
 export async function speakAsync(text: string, rate: number = useSettingsStore.getState().ttsRate, lang: 'zh' | 'ko' = 'zh'): Promise<void> {
   stopSpeak();
+  useOfflineStore.setState({ playbackError: null });
   const request = speechRequest;
-  const url = await (lang === 'ko' ? koMp3Url(text) : mp3Url(text));
+  const device = useSettingsStore.getState().voiceMode === 'device';
+  const url = device ? null : await (lang === 'ko' ? koMp3Url(text) : mp3Url(text));
   // 음원을 조회하는 동안 중단하거나 다른 재생을 시작했으면 이전 요청은 재생하지 않는다.
   if (request !== speechRequest) return;
   const fb = lang === 'ko' ? koSpeech(text) : text;
@@ -63,16 +80,22 @@ export async function speakAsync(text: string, rate: number = useSettingsStore.g
     let finished = false;
     const finish = () => { if (!finished) { finished = true; if (settle === finish) settle = null; resolve(); } };
     settle = finish;
-    if (!url) return speakFallback(fb, rate, finish, fl);
+    const fallback = () => {
+      if (!device && !navigator.onLine) {
+        useOfflineStore.setState({ playbackError: '저장된 녹음 음원을 재생하지 못했어요. 연결 후 음원 저장 상태를 확인해 주세요.' });
+        finish();
+      } else speakFallback(fb, rate, finish, fl);
+    };
+    if (!url) return fallback();
     const a = new Audio(url);
     a.playbackRate = rate;
     audio = a;
     a.onended = () => { if (audio === a) audio = null; finish(); };
-    a.onerror = () => { if (audio === a) { audio = null; speakFallback(fb, rate, finish, fl); } };
+    a.onerror = () => { if (audio === a) { audio = null; fallback(); } };
     a.play().catch(() => {
       if (audio === a && request === speechRequest) {
         audio = null;
-        speakFallback(fb, rate, finish, fl);
+        fallback();
       }
     });
   });
@@ -92,7 +115,11 @@ export async function speak(text: string, rate: number = useSettingsStore.getSta
 let passive: HTMLAudioElement | null = null;
 export const getPassiveAudio = () => (passive ??= new Audio());
 /** mp3 가 있으면 재생 후 true, 없으면 false (건너뛴다). 중단되면 true. */
-export async function playMp3Only(text: string, rate: number, lang: 'zh' | 'ko' = 'zh'): Promise<boolean> {
+export async function playPassive(text: string, rate: number, lang: 'zh' | 'ko' = 'zh'): Promise<boolean> {
+  if (useSettingsStore.getState().voiceMode === 'device') {
+    await speakAsync(text, rate, lang);
+    return !useOfflineStore.getState().playbackError;
+  }
   const url = await (lang === 'ko' ? koMp3Url(text) : mp3Url(text));
   if (!url) return false;
   const a = getPassiveAudio();
@@ -107,6 +134,7 @@ export async function playMp3Only(text: string, rate: number, lang: 'zh' | 'ko' 
 }
 let stopCurrent: (() => void) | null = null;
 export function stopPassive() {
+  stopSpeak();
   const a = passive;
   if (a) { a.onended = null; a.onerror = null; a.pause(); }
   const s = stopCurrent; stopCurrent = null; s?.();

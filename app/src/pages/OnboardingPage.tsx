@@ -32,7 +32,7 @@ export default function OnboardingPage() {
           <section className="space-y-4">
             <Icon name="headphones" size={44} className="text-brand" />
             <h1 className="text-3xl font-extrabold leading-tight">눈이 아니라<br />귀로 배웁니다</h1>
-            <p className="text-slate-700">한글 발음 표기에 기대지 않고, <b>소리에서 곧바로 뜻</b>이 떠오르도록 의미 단위로 쪼개 들어요.</p>
+            <p className="text-slate-700">한글 발음 표기에 기대지 않고, <b>소리에서 곧바로 뜻</b>이 떠오르도록 문장의 의미 단위를 확인하며 듣고 따라 해요.</p>
             <ul className="space-y-2 text-sm">
               {['한글로 읽어 외우는 습관에서 벗어나요', '성조가 무너지지 않게 원어민 소리를 그대로 들어요', '하루 10분, 3일 포기 없이 이어 가요'].map((t) => (
                 <li key={t} className="flex gap-2"><Icon name="check-circle" size={18} className="text-brand flex-none mt-0.5" />{t}</li>

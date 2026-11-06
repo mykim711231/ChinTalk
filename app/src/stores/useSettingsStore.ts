@@ -1,24 +1,32 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import type { StudySource } from '../types/lesson';
 
 export type FontSize = 'md' | 'lg' | 'xl';
 export type BlueLight = 0 | 1 | 2 | 3;
 type Level = 1 | 2 | 3 | 4;
-type ToggleKey = 'showZh' | 'showPinyin' | 'showKo';
-/** 끊어 읽기 단위: 0=끔, 1=초급, 2=중급, 3=고급 */
-export type BreakLevel = 0 | 1 | 2 | 3;
+type ToggleKey = 'showZh' | 'showPinyin' | 'showKo' | 'showMeaningUnits';
 
 type S = {
   showZh: boolean;
   showPinyin: boolean;
   showKo: boolean;
-  /** 끊어 읽기 단위(0=끔, 1=초급, 2=중급, 3=고급) */
-  breakLevel: BreakLevel;
+  /** 교재의 의미 단위 경계를 화면에 표시한다. 음성 재생과 무관하다. */
+  showMeaningUnits: boolean;
   fontSize: FontSize;
   blueLight: BlueLight;
   ttsRate: number;
+  voiceMode: 'device' | 'recorded';
+  ttsVoiceUri: string | null;
+  setVoiceMode: (mode: 'device' | 'recorded') => void;
+  setTtsVoiceUri: (uri: string | null) => void;
   level: Level;
   onboarded: boolean;
+  studySource: StudySource;
+  setStudySource: (source: StudySource) => void;
+  /** 접속 중 전체 음원을 자동으로 저장하고 중단된 다운로드를 이어받는다. */
+  autoDownload: boolean;
+  setAutoDownload: (v: boolean) => void;
   /** 데일리·편하게 듣기·마스터리에서 중국어 뒤에 한글 번역을 읽어 줌 */
   koVoice: boolean;
   setKoVoice: (v: boolean) => void;
@@ -31,7 +39,6 @@ type S = {
   setFontSize: (f: FontSize) => void;
   setBlueLight: (b: BlueLight) => void;
   setTtsRate: (r: number) => void;
-  setBreakLevel: (l: BreakLevel) => void;
 };
 
 export const useSettingsStore = create<S>()(
@@ -40,12 +47,20 @@ export const useSettingsStore = create<S>()(
       showZh: true,
       showPinyin: true,
       showKo: true,
-      breakLevel: 0,
+      showMeaningUnits: true,
       fontSize: 'md',
       blueLight: 0,
       ttsRate: 1,
+      voiceMode: 'device',
+      ttsVoiceUri: null,
+      setVoiceMode: (voiceMode) => set({ voiceMode }),
+      setTtsVoiceUri: (ttsVoiceUri) => set({ ttsVoiceUri }),
       level: 1,
       onboarded: false,
+      studySource: 'text',
+      setStudySource: (studySource) => set({ studySource }),
+      autoDownload: true,
+      setAutoDownload: (autoDownload) => set({ autoDownload }),
       koVoice: false,
       setKoVoice: (koVoice) => set({ koVoice }),
       installDismissedAt: 0,
@@ -56,16 +71,20 @@ export const useSettingsStore = create<S>()(
       setFontSize: (fontSize) => set({ fontSize }),
       setBlueLight: (blueLight) => set({ blueLight }),
       setTtsRate: (ttsRate) => set({ ttsRate }),
-      setBreakLevel: (breakLevel) => set({ breakLevel }),
     }),
     {
       name: 'chintalk-settings',
-      version: 3,
-      // v1 의 large(boolean) → fontSize, v2 의 showBreaks(boolean) → breakLevel
+      version: 4,
+      // 이전 단어/구/절 선택은 표시 여부만 유지한다. 나머지 사용자 설정은 보존한다.
       migrate: (old) => {
         const o = (old ?? {}) as Record<string, unknown>;
-        const { large, showBreaks, ...rest } = o;
-        return { ...rest, fontSize: large ? 'lg' : 'md', breakLevel: showBreaks ? 3 : 0 } as unknown as S;
+        const { large, showBreaks, breakLevel, ...rest } = o;
+        return {
+          ...rest,
+          fontSize: rest.fontSize ?? (large ? 'lg' : 'md'),
+          showMeaningUnits: typeof rest.showMeaningUnits === 'boolean' ? rest.showMeaningUnits
+            : typeof breakLevel === 'number' ? breakLevel > 0 : typeof showBreaks === 'boolean' ? showBreaks : true,
+        } as unknown as S;
       },
     },
   ),

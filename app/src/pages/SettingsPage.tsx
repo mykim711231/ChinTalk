@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { cachedCount, deleteVol, downloadVol, volUrls } from '../lib/offline';
+import { cachedCount, cancelAudioDownloads, deleteVol, downloadVol, volUrls } from '../lib/offline';
 import { LEVEL_NAMES } from '../lib/contentLoader';
 import { useSettingsStore, type FontSize, type BlueLight } from '../stores/useSettingsStore';
-import { speak } from '../lib/tts';
+import { speak, stopSpeak, ttsSupported } from '../lib/tts';
+import { pauseOfflineDownload } from '../lib/pwa';
+import { useOfflineStore } from '../stores/useOfflineStore';
+import OfflineStatus from '../components/OfflineStatus';
 import {
   getStorageInfo, clearContentCaches, clearAllCaches,
   exportBackup, importBackup, resetAllUserData, type StorageInfo,
@@ -18,30 +21,37 @@ function VolDownload({ vol }: { vol: number }) {
   const [have, setHave] = useState(0);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const cancel = useRef({ cancelled: false });
+  const cancel = useRef(new AbortController());
+  const autoPhase = useOfflineStore((s) => s.audio);
   const refresh = async (u = urls) => setHave(await cachedCount(u));
   useEffect(() => {
     let alive = true;
     void volUrls(vol).then(async (u) => { if (!alive) return; setUrls(u); setHave(await cachedCount(u)); }).catch(() => undefined);
-    return () => { alive = false; cancel.current.cancelled = true; };
+    return () => { alive = false; cancel.current.abort(); };
   }, [vol]);
+  useEffect(() => { if (autoPhase !== 'downloading') void refresh(); }, [autoPhase]);
   const total = urls.length;
   const full = total > 0 && have >= total;
   const run = async () => {
-    cancel.current = { cancelled: false };
+    cancel.current = new AbortController();
     setBusy(true); setErr(null);
-    try { await downloadVol(urls, setHave, cancel.current); } catch { setErr('다운로드에 실패했어요. 연결을 확인하고 다시 시도해 주세요.'); }
+    try { await downloadVol(urls, setHave, cancel.current.signal); } catch { setErr('다운로드에 실패했어요. 연결을 확인하고 다시 시도해 주세요.'); }
     setBusy(false); void refresh();
   };
-  const remove = async () => { await deleteVol(urls); void refresh(); };
+  const remove = async () => {
+    useSettingsStore.getState().setAutoDownload(false);
+    await pauseOfflineDownload();
+    await deleteVol(urls);
+    void refresh();
+  };
   return (
     <Row label={`Vol.${vol} 음원`} description={total ? `${have}/${total}개 저장됨${err ? ' · ' + err : ''}` : '음원이 아직 준비 중이에요.'}>
       {busy ? (
-        <button type="button" className={pill} onClick={() => { cancel.current.cancelled = true; }}>중단 {Math.round((have / Math.max(1, total)) * 100)}%</button>
+        <button type="button" className={pill} onClick={() => cancel.current.abort()}>중단 {Math.round((have / Math.max(1, total)) * 100)}%</button>
       ) : full ? (
-        <button type="button" className={pill} onClick={() => void remove()}><Icon name="trash" size={14} /> 삭제</button>
+        <button type="button" className={pill} disabled={autoPhase === 'downloading'} onClick={() => void remove()}><Icon name="trash" size={14} /> 삭제</button>
       ) : (
-        <button type="button" className={pill} disabled={!total} onClick={() => void run()}><Icon name="download" size={14} /> 받기</button>
+        <button type="button" className={pill} disabled={!total || autoPhase === 'downloading'} onClick={() => void run()}><Icon name="download" size={14} /> 받기</button>
       )}
     </Row>
   );
@@ -55,6 +65,14 @@ export default function SettingsPage() {
   const [toast, setToast] = useState<string | null>(null);
   const timer = useRef<number | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  useEffect(() => {
+    if (!ttsSupported()) return;
+    const update = () => setVoices(window.speechSynthesis.getVoices().filter((v) => /^zh/i.test(v.lang)));
+    update();
+    window.speechSynthesis.addEventListener('voiceschanged', update);
+    return () => window.speechSynthesis.removeEventListener('voiceschanged', update);
+  }, []);
 
   const showToast = (t: string) => {
     setToast(t);
@@ -92,13 +110,19 @@ export default function SettingsPage() {
   };
 
   const onClearContent = async () => {
+    s.setAutoDownload(false);
+    await pauseOfflineDownload();
+    await cancelAudioDownloads();
     const n = await clearContentCaches();
-    setMsg({ text: `음성·본문 캐시 ${n}개를 삭제했습니다.` });
+    setMsg({ text: `다운로드 음원 캐시 ${n}개를 삭제했습니다. 교재·단어장과 학습 기록은 유지됩니다.` });
     refresh();
   };
 
   const onClearAll = async () => {
     if (!confirm('모든 캐시와 학습 진도·형광펜·설정이 삭제됩니다. 계속하시겠습니까?')) return;
+    s.setAutoDownload(false);
+    await pauseOfflineDownload();
+    await cancelAudioDownloads();
     await clearAllCaches();
     resetAllUserData();
     window.location.reload();
@@ -124,18 +148,8 @@ export default function SettingsPage() {
           <Row label="병음 표시" description="한자 발음(pīnyīn)을 보여줍니다.">
             <Toggle label="병음 표시" on={s.showPinyin} onClick={() => { s.toggle('showPinyin'); showToast(s.showPinyin ? '병음을 숨겼어요.' : '병음을 다시 표시해요.'); }} />
           </Row>
-        <Row label="의미단위 표시" description="선택한 단위의 경계를 / 로 표시해요. 단어→구→절 순으로 덩어리가 커져요. 전체 듣기는 항상 문장 전체를 재생해요." stack>
-          <Segmented<string>
-            grid
-            value={String(s.breakLevel)}
-            options={[
-              { v: '0', l: '끔' },
-              { v: '1', l: '단어 (分词)' },
-              { v: '2', l: '구 (문법 묶음)' },
-              { v: '3', l: '절 (구두점)' },
-            ]}
-            onChange={(v) => { s.setBreakLevel(Number(v) as 0 | 1 | 2 | 3); showToast('의미단위 표시를 바꿨어요.'); }}
-          />
+        <Row label="의미단위 표시" description="문장을 이해하기 좋은 의미 덩어리로 나누어 / 로 표시해요. 예: 我是 / 韩国人。 전체 듣기는 문장 전체를 재생해요.">
+          <Toggle label="의미단위 표시" on={s.showMeaningUnits} onClick={() => { s.toggle('showMeaningUnits'); showToast(s.showMeaningUnits ? '의미단위 표시를 껐어요.' : '의미단위를 표시해요.'); }} />
         </Row>
           <Row label="한글 표시" description="한국어 뜻을 함께 보여줍니다.">
             <Toggle label="한글 표시" on={s.showKo} onClick={() => { s.toggle('showKo'); showToast(s.showKo ? '한글 뜻을 숨겼어요.' : '한글 뜻을 다시 표시해요.'); }} />
@@ -165,7 +179,18 @@ export default function SettingsPage() {
       </section>
 
       <section>
-        <SectionHeader title="음성 (TTS)" subtitle="미리 합성된 mp3로 재생하고, 없는 문장은 단말기 음성으로 대신해요." />
+        <SectionHeader title="음성 재생 방식" subtitle="기기 음성을 기본으로 사용해요. 녹음 음성은 저장한 mp3를 재생해요." />
+        <Card>
+          <Row label="재생 방식" description="기기 음성을 오프라인에서 쓰려면 스마트폰에 중국어 음성팩이 설치되어 있어야 해요." stack>
+            <Segmented<'device' | 'recorded'> value={s.voiceMode}
+              options={[{ v: 'device', l: '기기 음성' }, { v: 'recorded', l: '녹음 음성' }]}
+              onChange={(mode) => { stopSpeak(); s.setVoiceMode(mode); showToast(mode === 'device' ? '기기 음성으로 재생해요.' : '녹음 음성으로 재생해요.'); }} />
+          </Row>
+        </Card>
+      </section>
+
+      <section>
+        <SectionHeader title="음성 (TTS)" subtitle={s.voiceMode === 'device' ? '선택한 중국어 기기 음성으로 읽어 줘요.' : '녹음된 mp3를 우선 재생해요.'} />
         <Card className="divide-y divide-slate-200">
           <Row label={`속도: ${s.ttsRate.toFixed(2)}×`} description="처음 배울 때는 0.80× 정도를 권해요.">
             <input
@@ -181,11 +206,26 @@ export default function SettingsPage() {
               <Icon name="speaker" size={16} /> 들어보기
             </button>
           </Row>
+          <Row label="중국어 음성 선택" stack description={voices.length ? '기기 음성은 오프라인 사용 가능 여부가 음성팩에 따라 달라요.' : '중국어 음성이 보이지 않으면 스마트폰의 음성 설정에서 중국어 음성팩을 설치해 주세요.'}>
+            <select aria-label="중국어 음성 선택" value={s.ttsVoiceUri ?? ''} disabled={s.voiceMode !== 'device'}
+              onChange={(e) => { stopSpeak(); s.setTtsVoiceUri(e.target.value || null); }}
+              className="w-full max-w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm disabled:opacity-40 sm:max-w-64">
+              <option value="">자동</option>
+              {voices.map((v) => <option key={v.voiceURI} value={v.voiceURI}>{v.name} · {v.lang}{v.localService ? ' (기기)' : ' (온라인)'}</option>)}
+            </select>
+          </Row>
         </Card>
       </section>
 
       <section>
-        <SectionHeader title="오프라인 음원" subtitle="권 단위로 받아 두면 인터넷 없이도 재생돼요. (권당 약 10~15MB, Wi-Fi 권장)" />
+        <SectionHeader title="자동 설치·오프라인 저장" subtitle="전권 교재·단어장은 자동 저장돼요. 새 버전은 자동으로 받아 다음 실행 때 적용해요." />
+        <Card className="divide-y divide-slate-200 mb-3">
+          <div className="p-4"><OfflineStatus /></div>
+          <Row label="녹음 음원 자동 저장" description="인터넷에 연결되면 전체 녹음 음원을 받아 두고, 중단되면 이어받아요. Wi-Fi 사용을 권장해요.">
+            <Toggle label="녹음 음원 자동 저장" on={s.autoDownload} onClick={() => s.setAutoDownload(!s.autoDownload)} />
+          </Row>
+        </Card>
+        <SectionHeader title="권별 녹음 음원" subtitle="자동 저장을 끄면 필요한 권만 받을 수도 있어요." />
         <Card className="divide-y divide-slate-200">
           {[1, 2, 3, 4, 5, 6, 7, 8].map((v) => <VolDownload key={v} vol={v} />)}
         </Card>
@@ -232,7 +272,7 @@ export default function SettingsPage() {
           )}
           <div className="flex flex-wrap gap-2 pt-1">
             <button type="button" onClick={() => void onClearContent()} className={pill}>
-              <Icon name="trash" size={14} /> 음성·본문 캐시 비우기
+              <Icon name="trash" size={14} /> 다운로드한 음원 비우기
             </button>
             <button type="button" onClick={() => void onClearAll()} className="inline-flex items-center gap-1.5 rounded-full border border-red-600 bg-red-50 text-red-700 text-sm font-semibold px-3 py-2">
               <Icon name="trash" size={14} /> 전체 초기화

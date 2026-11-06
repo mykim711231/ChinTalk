@@ -6,8 +6,14 @@ import { speakAsync, speakKoIfOn, stopSpeak } from '../lib/tts';
 import { calcStreak, useProgressStore } from '../stores/useProgressStore';
 import { useHighlightStore } from '../stores/useHighlightStore';
 import { useSettingsStore } from '../stores/useSettingsStore';
+import { useOfflineStore } from '../stores/useOfflineStore';
 import Icon from '../components/Icon';
-import type { Lesson, LessonMeta } from '../types/lesson';
+import type { Lesson, LessonMeta, StudySource, Verse } from '../types/lesson';
+import { studyLines, studySourceLabel } from '../lib/studyContent';
+import { useStudySource } from '../hooks/useStudySource';
+import StudySourceSelector from '../components/StudySourceSelector';
+import HanText from '../components/HanText';
+import { alignChars } from '../lib/pinyin';
 
 // §6.7 6단계 (초). ?speed=N 으로 N배속(테스트·체험용)
 const STEPS = [
@@ -23,7 +29,8 @@ const btnBrand = 'inline-flex items-center gap-1.5 rounded-full bg-brand text-wh
 const mmss = (s: number) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(Math.max(0, Math.ceil(s)) % 60).padStart(2, '0')}`;
 
 export default function DailyPage() {
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
+  const { source, setSource } = useStudySource();
   const speed = Math.max(1, Number(params.get('speed')) || 1);
   const [meta, setMeta] = useState<LessonMeta[]>([]);
   const [id, setId] = useState<string | null>(params.get('id'));
@@ -37,12 +44,19 @@ export default function DailyPage() {
   const level = useSettingsStore((s) => s.level);
   const { marks, toggleRed } = useHighlightStore();
   const stepRef = useRef(0);
+  const cursor = useRef(0);
   stepRef.current = step;
+  const lines = useMemo(() => lesson ? studyLines(lesson, source) : [], [lesson, source]);
 
   useEffect(() => { void loadMeta().then(setMeta); }, []);
   const rec = useMemo(() => recommendLesson(meta, prog, level), [meta, prog.last, prog.mastered, prog.dailyDone, level]); // eslint-disable-line react-hooks/exhaustive-deps
   const curId = id ?? rec?.id ?? null;
-  useEffect(() => { if (curId) void loadLesson(curId).then((l) => setLesson(l ?? null)); }, [curId]);
+  useEffect(() => {
+    let active = true;
+    setLesson(null);
+    if (curId) void loadLesson(curId).then((l) => { if (active) setLesson(l ?? null); });
+    return () => { active = false; };
+  }, [curId]);
 
   // 타이머
   useEffect(() => {
@@ -56,44 +70,57 @@ export default function DailyPage() {
     if (state !== 'running' || left > 0) return;
     if (step >= STEPS.length - 1) { finish(); return; }
     const n = step + 1;
-    setStep(n); setLeft(STEPS[n].sec); setVIdx(0);
+    setStep(n); setLeft(STEPS[n].sec);
     setToast(`다음 단계: ${STEPS[n].name}`);
     window.setTimeout(() => setToast(null), 3000);
   }, [left]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 재생 루프: 음원이 짧으면 순환 반복, 단계가 바뀌거나 멈추면 중단
   useEffect(() => {
-    if (state !== 'running' || !lesson?.text.length) return;
+    if (state !== 'running' || !lines.length) return;
     let alive = true;
     (async () => {
-      let i = 0;
       while (alive) {
-        setVIdx(i % lesson.text.length);
-        const verse = lesson.text[i % lesson.text.length];
+        const i = cursor.current % lines.length;
+        setVIdx(i);
+        const verse = lines[i].verse;
         await speakAsync(verse.zh);
         if (!alive) break;
+        if (useOfflineStore.getState().playbackError) { setState('paused'); break; }
         if (stepRef.current !== 4) { await new Promise((r) => setTimeout(r, 250)); if (alive) await speakKoIfOn(verse.ko); }
         if (!alive) break;
         await new Promise((r) => setTimeout(r, stepRef.current === 4 ? 2200 / Math.min(speed, 4) : 600));
-        i++;
+        if (!alive) break;
+        cursor.current = (i + 1) % lines.length;
       }
     })();
     return () => { alive = false; stopSpeak(); };
-  }, [state, step, lesson]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [state, step, lines, speed]);
 
   useEffect(() => () => stopSpeak(), []);
 
   const finish = () => {
     stopSpeak();
-    if (lesson) prog.markDaily(lesson.id);
+    if (lesson) prog.markDaily(lesson.id, source);
     setState('done');
   };
-  const start = () => { setStep(0); setLeft(STEPS[0].sec); setVIdx(0); setState('running'); };
+  const start = () => {
+    if (!lesson || !lines.length) return;
+    setId(lesson.id); prog.setLast(lesson.id);
+    cursor.current = 0; setStep(0); setLeft(STEPS[0].sec); setVIdx(0); setState('running');
+  };
+  const changeSource = (next: StudySource) => {
+    stopSpeak();
+    cursor.current = 0;
+    setState('idle'); setStep(0); setLeft(STEPS[0].sec); setVIdx(0);
+    setSource(next);
+  };
   const skip = () => setLeft(0);
   const total = STEPS.reduce((a, s) => a + s.sec, 0);
   const remaining = STEPS.slice(step + 1).reduce((a, s) => a + s.sec, 0) + Math.max(0, left);
   const cur = STEPS[step];
-  const v = lesson?.text[vIdx];
+  const line = lines[vIdx];
+  const v = line?.verse;
   const streak = calcStreak(prog.days);
 
   return (
@@ -102,6 +129,9 @@ export default function DailyPage() {
         <h1 className="text-xl font-bold inline-flex items-center gap-2"><Icon name="timer" size={22} className="text-brand" /> 10분 데일리</h1>
         {state !== 'idle' && state !== 'done' && <span className="font-mono text-lg" aria-label="남은 시간">{mmss(remaining)}</span>}
       </div>
+      <StudySourceSelector value={source} lesson={lesson} onChange={changeSource} />
+      <p className="text-xs text-slate-500">{studySourceLabel(source)} · {lines.length}문장{source === 'all' ? ' (본문 다음 회화 순서)' : ''}{state === 'running' || state === 'paused' ? ' · 대상을 바꾸면 처음부터 시작해요.' : ''}</p>
+      {lesson && !lines.length && <p role="status" className="text-sm text-slate-500">선택한 대상의 문장이 없어요. 다른 대상을 선택해 주세요.</p>}
 
       {state === 'idle' && (
         <section className="space-y-3">
@@ -109,7 +139,11 @@ export default function DailyPage() {
           <label className="block text-sm font-semibold">
             오늘의 음원
             <select
-              value={curId ?? ''} onChange={(e) => setId(e.target.value)}
+              value={curId ?? ''} onChange={(e) => {
+                setId(e.target.value);
+                cursor.current = 0; setVIdx(0);
+                const query = new URLSearchParams(params); query.set('id', e.target.value); setParams(query, { replace: true });
+              }}
               className="mt-1 block w-full rounded-xl border border-slate-300 bg-white px-3 py-2 font-normal"
             >
               {meta.map((m) => (
@@ -124,7 +158,7 @@ export default function DailyPage() {
               <li key={s.name} className="flex gap-2"><span className="w-12 flex-none text-slate-500">{s.sec / 60}분</span><span><b>{i + 1}. {s.name}</b> — {s.desc}</span></li>
             ))}
           </ol>
-          <button type="button" className={`${btnBrand} w-full justify-center py-3`} disabled={!lesson} onClick={start}>
+          <button type="button" className={`${btnBrand} w-full justify-center py-3`} disabled={!lines.length} onClick={start}>
             <Icon name="play" size={18} /> 시작하기 ({total / 60}분)
           </button>
         </section>
@@ -146,6 +180,7 @@ export default function DailyPage() {
           <div className="rounded-2xl border border-slate-200 bg-white p-4 min-h-40 space-y-2">
             {v && (
               <div className={cur.blur ? 'blur-md select-none' : ''} aria-hidden={cur.blur}>
+                <p className="text-xs text-slate-500 mb-2">{line.source === 'text' ? '본문' : '회화'}{line.speaker ? ` · ${line.speaker}` : ''}</p>
                 {step === 2 || step === 3 ? (
                   <div className="flex flex-wrap gap-2">
                     {v.chunks.map((c) => {
@@ -153,22 +188,17 @@ export default function DailyPage() {
                       return step === 2 ? (
                         <button
                           key={c.id} type="button" aria-pressed={red} onClick={() => toggleRed(c.id)}
-                          lang="zh-Hans" className={`rounded-xl border px-3 py-2 reading-zh ${red ? 'bg-red-50 border-red-500 text-red-800' : 'bg-white border-slate-300'}`}
-                        >{c.zh}</button>
+                          className={`max-w-full rounded-xl border px-3 py-2 text-left ${red ? 'bg-red-50 border-red-500 text-red-800' : 'bg-white border-slate-300'}`}
+                        ><DailyText verse={{ ...c, phrases: c.zh === v.zh ? v.phrases : undefined }} /></button>
                       ) : (
-                        <span key={c.id} className="rounded-xl border border-slate-200 px-3 py-2 text-center">
-                          <span lang="zh-Hans" className="block reading-zh">{c.zh}</span>
-                          <span lang="zh-Latn-pinyin" className="block reading-pinyin">{c.pinyin}</span>
-                          <span className="block text-xs">{c.ko}</span>
+                        <span key={c.id} className="max-w-full rounded-xl border border-slate-200 px-3 py-2 text-center">
+                          <DailyText verse={{ ...c, phrases: c.zh === v.zh ? v.phrases : undefined }} translation />
                         </span>
                       );
                     })}
                   </div>
                 ) : (
-                  <>
-                    <div lang="zh-Hans" className="reading-zh">{v.zh}</div>
-                    {step === 1 && <><div lang="zh-Latn-pinyin" className="reading-pinyin">{v.pinyin}</div><div className="text-base leading-relaxed">{v.ko}</div></>}
-                  </>
+                  <DailyText verse={v} translation={step === 1 || step === 4} />
                 )}
               </div>
             )}
@@ -192,8 +222,8 @@ export default function DailyPage() {
           <h2 className="text-xl font-bold">오늘의 10분 완료!</h2>
           <p className="text-sm">연속 학습 <b>{streak}일</b> · <b>{lesson.no}. {lesson.titleZh}</b> 음원이 편하게 듣기에 해금되었어요.</p>
           <div className="flex justify-center gap-2">
-            <Link to="/passive" className={btn}><Icon name="headphones" size={14} /> 편하게 듣기</Link>
-            <Link to={`/lesson/${lesson.id}/mastery`} className={btn}><Icon name="target" size={14} /> 마스터리로 정밀 학습</Link>
+            <Link to={`/passive?source=${source}`} className={btn}><Icon name="headphones" size={14} /> 편하게 듣기</Link>
+            <Link to={`/lesson/${lesson.id}/mastery?source=${source}`} className={btn}><Icon name="target" size={14} /> 마스터리로 정밀 학습</Link>
           </div>
         </section>
       )}
@@ -204,5 +234,20 @@ export default function DailyPage() {
         </div>
       )}
     </main>
+  );
+}
+
+/** 표현 확인 버튼 안에서도 중첩 버튼 없이 글자별 병음을 위에 표시한다. */
+function DailyText({ verse, translation = false }: { verse: Pick<Verse, 'zh' | 'pinyin' | 'ko' | 'phrases'>; translation?: boolean }) {
+  const { showPinyin, showKo, showMeaningUnits } = useSettingsStore();
+  const aligned = !!alignChars(verse.zh, verse.pinyin);
+  return (
+    <>
+      {showPinyin && !aligned && <span lang="zh-Latn-pinyin" className="block reading-pinyin mb-1">{verse.pinyin}</span>}
+      <span className="block reading-zh">
+        <HanText zh={verse.zh} pinyin={verse.pinyin} ruby={showPinyin} phrases={verse.phrases} showMeaningUnits={showMeaningUnits} interactive={false} />
+      </span>
+      {translation && showKo && <span className="block mt-1 text-base leading-snug">{verse.ko}</span>}
+    </>
   );
 }
