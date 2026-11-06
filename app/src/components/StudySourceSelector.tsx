@@ -8,6 +8,7 @@ export default function StudySourceSelector({ value, onChange, lesson }: {
   const dialog = !lesson || lesson.dialogs.some((d) => d.turns.length > 0);
   return (
     <div role="group" aria-label="학습 대상" className="flex flex-wrap gap-2">
+      <span className="w-full text-sm font-semibold">학습 대상</span>
       {STUDY_SOURCES.map(({ value: source, label }) => (
         <button key={source} type="button" aria-pressed={value === source}
           disabled={source === 'text' ? !text : source === 'dialog' ? !dialog : !text && !dialog}

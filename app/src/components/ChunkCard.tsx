@@ -10,7 +10,7 @@ const BG: Record<Color, string> = { green: 'bg-green-50', yellow: 'bg-yellow-50'
 const DOT: Record<Color, string> = { green: 'bg-green-600', yellow: 'bg-yellow-500', red: 'bg-red-600' };
 const LABEL: Record<Color, string> = { green: '바로 이해', yellow: '헷갈림', red: '완전 생소' };
 
-export default function ChunkCard({ verse, speaker }: { verse: Verse; speaker?: string }) {
+export default function ChunkCard({ verse, speaker, onBeforeSpeak }: { verse: Verse; speaker?: string; onBeforeSpeak?: () => void }) {
   const { showZh, showPinyin, showKo, showMeaningUnits } = useSettingsStore();
   const { marks, cycle } = useHighlightStore();
   const key = verse.chunks[0]?.id ?? verse.zh;
@@ -21,19 +21,19 @@ export default function ChunkCard({ verse, speaker }: { verse: Verse; speaker?: 
       <div className="grid grid-cols-[2.25rem_minmax(0,1fr)] grid-rows-[auto_1fr] items-start gap-x-2 gap-y-1">
         <button
           aria-label="듣기"
-          onClick={() => speak(verse.zh)}
+          onClick={() => { onBeforeSpeak?.(); void speak(verse.zh); }}
           className="shrink-0 w-9 h-9 rounded-full bg-brand text-white flex items-center justify-center"
         >
           <Icon name="speaker" size={18} />
         </button>
         <div className="col-start-2 row-start-1 row-span-2 min-w-0">
           {speaker && <span className="text-xs text-slate-500 mr-1">{speaker}</span>}
+          {showPinyin && (!showZh || !aligned) && <div lang="zh-Latn-pinyin" className="reading-pinyin mb-1">{verse.pinyin}</div>}
           {showZh && (
             <div className="reading-zh">
               <HanText zh={verse.zh} pinyin={verse.pinyin} ruby={showPinyin} phrases={verse.phrases} showMeaningUnits={showMeaningUnits} />
             </div>
           )}
-          {showPinyin && (!showZh || !aligned) && <div lang="zh-Latn-pinyin" className="reading-pinyin mt-1">{verse.pinyin}</div>}
           {showKo && <div className="mt-1 text-base leading-snug text-slate-800">{verse.ko}</div>}
         </div>
         <button
