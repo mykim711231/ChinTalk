@@ -10,6 +10,7 @@ import type { LessonMeta } from '../types/lesson';
 import { studyLines, studySourceLabel } from '../lib/studyContent';
 import { useStudySource } from '../hooks/useStudySource';
 import StudySourceSelector from '../components/StudySourceSelector';
+import { isBasicMode } from '../lib/compatibility';
 
 type Mode = 'one' | 'all' | 'shuffle';
 const MODES: { v: Mode; l: string; icon: string }[] = [
@@ -22,6 +23,7 @@ const btnBrand = 'inline-flex items-center gap-1.5 rounded-full bg-brand text-wh
 
 /** 해금한 과의 본문·회화를 선택한 음성 방식으로 반복 재생한다. */
 export default function PassivePage() {
+  const basic = isBasicMode();
   const { source, setSource } = useStudySource();
   const [meta, setMeta] = useState<LessonMeta[]>([]);
   const prog = useProgressStore();
@@ -37,7 +39,8 @@ export default function PassivePage() {
   modeRef.current = mode;
 
   useEffect(() => { void loadMeta().then(setMeta); }, []);
-  const unlocked = meta.filter((m) => isUnlocked(prog, m.id));
+  // 기본 모드는 고급 학습을 완료할 수 없으므로 전체 교재를 바로 들을 수 있게 한다.
+  const unlocked = basic ? meta : meta.filter((m) => isUnlocked(prog, m.id));
   const listRef = useRef(unlocked);
   listRef.current = unlocked;
 
@@ -56,8 +59,8 @@ export default function PassivePage() {
     token.current++;
     stopPassive();
     setPlaying(false);
-    if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
-  }, []);
+    if (!basic && 'mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
+  }, [basic]);
 
   const playFrom = useCallback(async (startId: string) => {
     const my = ++token.current;
@@ -71,7 +74,7 @@ export default function PassivePage() {
       const lesson = await loadLesson(id);
       if (!lesson || !m || token.current !== my) break;
       setCur(id);
-      if ('mediaSession' in navigator) {
+      if (!basic && 'mediaSession' in navigator) {
         navigator.mediaSession.metadata = new MediaMetadata({ title: `${lesson.no}. ${lesson.titleZh} · ${studySourceLabel(source)}`, artist: 'ChinTalk', album: `Vol.${lesson.vol}` });
         navigator.mediaSession.playbackState = 'playing';
       }
@@ -102,13 +105,13 @@ export default function PassivePage() {
     }
     if (token.current === my) {
       setPlaying(false);
-      if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
+      if (!basic && 'mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
     }
-  }, [rate, source, stop]);
+  }, [rate, source, stop, basic]);
 
   // 잠금화면/알림 컨트롤
   useEffect(() => {
-    if (!('mediaSession' in navigator)) return;
+    if (basic || !('mediaSession' in navigator)) return;
     const ms = navigator.mediaSession;
     const step = (d: number) => {
       const list = listRef.current;
@@ -121,7 +124,7 @@ export default function PassivePage() {
     ms.setActionHandler('nexttrack', () => step(1));
     ms.setActionHandler('previoustrack', () => step(-1));
     return () => { (['pause', 'play', 'nexttrack', 'previoustrack'] as const).forEach((a) => ms.setActionHandler(a, null)); };
-  }, [cur, playFrom, stop]);
+  }, [cur, playFrom, stop, basic]);
 
   useEffect(() => () => { token.current++; stopPassive(); }, []);
 
@@ -131,15 +134,15 @@ export default function PassivePage() {
       <h1 className="text-xl font-bold inline-flex items-center gap-2"><Icon name="headphones" size={22} className="text-brand" /> 편하게 듣기</h1>
       <StudySourceSelector value={source} onChange={(value) => { stop(); setNote(null); setSource(value); }} />
       <p className="text-sm text-brand">재생 대상: {studySourceLabel(source)}{source === 'all' ? ' (본문 다음 회화 순서)' : ''}</p>
-      <p className="text-sm text-slate-600">마스터리나 데일리로 <b>익숙해진 과</b>를 반복해서 들어요. {voiceMode === 'device' ? '기기 음성은 화면을 켜 둔 상태에서 사용해 주세요.' : '녹음 음성은 화면을 꺼도 재생할 수 있어요(기기·브라우저에 따라 제한될 수 있어요).'}</p>
-      <p className="text-xs text-slate-500">해금 방법: <b>학습</b> 메뉴에서 한 과의 <b>4단계 마스터리</b>를 달성하거나 <b>10분 데일리</b> 6단계를 끝내면 그 과가 자동으로 추가돼요.</p>
+      <p className="text-sm text-slate-600">{basic ? '모든 과의 본문·회화를 바로 듣고 반복할 수 있어요. 화면을 켜 둔 상태에서 사용해 주세요.' : <>마스터리나 데일리로 <b>익숙해진 과</b>를 반복해서 들어요. {voiceMode === 'device' ? '기기 음성은 화면을 켜 둔 상태에서 사용해 주세요.' : '녹음 음성은 화면을 꺼도 재생할 수 있어요(기기·브라우저에 따라 제한될 수 있어요).'}</>}</p>
+      {!basic && <p className="text-xs text-slate-500">해금 방법: <b>학습</b> 메뉴에서 한 과의 <b>4단계 마스터리</b>를 달성하거나 <b>10분 데일리</b> 6단계를 끝내면 그 과가 자동으로 추가돼요.</p>}
 
       {unlocked.length === 0 ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-5 text-center space-y-3">
           <Icon name="lock" size={32} className="mx-auto text-slate-400" />
-          <p className="text-sm">아직 해금된 음원이 없어요. 한 과의 <b>마스터리</b>나 <b>10분 데일리</b>를 마치면 여기에 나타나요.</p>
+          <p className="text-sm">{basic ? '교재 목록을 불러오는 중이에요.' : <>아직 해금된 음원이 없어요. 한 과의 <b>마스터리</b>나 <b>10분 데일리</b>를 마치면 여기에 나타나요.</>}</p>
           <div className="flex justify-center gap-2">
-            <Link to={`/daily?source=${source}`} className={btnBrand}><Icon name="timer" size={14} /> 10분 데일리</Link>
+            {!basic && <Link to={`/daily?source=${source}`} className={btnBrand}><Icon name="timer" size={14} /> 10분 데일리</Link>}
             <Link to="/study" className={btn}>학습 메뉴</Link>
           </div>
         </div>
@@ -161,7 +164,7 @@ export default function PassivePage() {
                 <Icon name="play" size={16} /> 재생
               </button>
             )}
-            <span className="text-xs text-slate-500">해금 {unlocked.length}/{total}과</span>
+            <span className="text-xs text-slate-500">{basic ? '바로 듣기' : '해금'} {unlocked.length}/{total}과</span>
           </div>
           {note && <p role="status" className="text-xs text-amber-800">{note}</p>}
           <div className="flex flex-wrap gap-2" role="tablist" aria-label="권 선택">

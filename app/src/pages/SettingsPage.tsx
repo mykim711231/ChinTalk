@@ -14,6 +14,7 @@ import {
 } from '../lib/storage';
 import { Card, Row, Toggle, Segmented, SectionHeader } from '../components/ui';
 import Icon from '../components/Icon';
+import { isBasicMode } from '../lib/compatibility';
 
 const pill = 'inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white text-sm font-semibold px-3 py-2';
 
@@ -59,6 +60,7 @@ function VolDownload({ vol }: { vol: number }) {
 }
 
 export default function SettingsPage() {
+  const basic = isBasicMode();
   const s = useSettingsStore();
   const nav = useNavigate();
   const [storage, setStorage] = useState<StorageInfo | null>(null);
@@ -223,8 +225,10 @@ export default function SettingsPage() {
         <Card className="p-4 space-y-3">
           <AppUpdate />
           <div className="border-t border-slate-200 pt-3 text-sm space-y-2">
-            <p>Android 8·9 태블릿에서 설치한 앱이 바로 닫히면 Chrome으로 여는 호환용 바로가기를 사용해 보세요.</p>
+            <p className="font-semibold">현재 사용 모드: {basic ? '기본 학습' : '전체 기능'}</p>
+            <p>구형 Android·Chrome에서는 교재·듣기 위주의 기본 학습 모드로 실행해요. 전체 기능은 지원 중인 Android와 최신 Chrome에서 이용하세요. 기본 모드도 같은 최신 ChinTalk로 업데이트돼요.</p>
             <a className="inline-block rounded-full border border-brand px-3 py-2 font-semibold text-brand" href={`${import.meta.env.BASE_URL}browser.html#/`}>브라우저 호환 모드 열기</a>
+            {window.location.pathname.endsWith('/browser.html') && <a className="ml-2 inline-block text-brand underline" href={`${import.meta.env.BASE_URL}#/`}>일반 주소로 열기</a>}
             <p className="text-xs text-slate-500">호환 화면을 Chrome에서 연 뒤 ⋮ → 홈 화면에 추가 → 바로가기 만들기로 추가하세요. 앱 설치 대신 Chrome으로 여는 바로가기를 사용해요. 같은 Chrome의 학습 기록과 저장 자료를 사용해요.</p>
           </div>
         </Card>

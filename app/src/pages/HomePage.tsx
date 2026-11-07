@@ -11,11 +11,13 @@ import { useSettingsStore } from '../stores/useSettingsStore';
 import type { LessonMeta } from '../types/lesson';
 import Icon from '../components/Icon';
 import InviteQrModal from '../components/InviteQrModal';
+import { isBasicMode } from '../lib/compatibility';
 
 const LEVEL_ICONS = ['sprout', 'layers', 'mountain', 'award'];
 const card = 'rounded-2xl border border-slate-200 bg-white shadow-sm';
 
 export default function HomePage() {
+  const basic = isBasicMode();
   const [meta, setMeta] = useState<LessonMeta[]>([]);
   const [copied, setCopied] = useState(false);
   const [qr, setQr] = useState(false);
@@ -38,7 +40,7 @@ export default function HomePage() {
   }, [level]);
   const streak = calcStreak(prog.days);
   const rec = recommendLesson(meta, prog, level);
-  const unlockedCount = meta.filter((m) => isUnlocked(prog, m.id)).length;
+  const unlockedCount = basic ? meta.length : meta.filter((m) => isUnlocked(prog, m.id)).length;
   const mv = Object.values(marks);
   const cnt = { green: mv.filter((c) => c === 'green').length, yellow: mv.filter((c) => c === 'yellow').length, red: mv.filter((c) => c === 'red').length };
   const sum = cnt.green + cnt.yellow + cnt.red;
@@ -120,20 +122,20 @@ export default function HomePage() {
         </section>
       )}
 
-      <Link to={rec ? `/daily?id=${rec.id}` : '/daily'} className={`${card} flex items-center gap-3 p-4`}>
+      <Link to={basic ? (rec ? `/lesson/${rec.id}` : '/path') : (rec ? `/daily?id=${rec.id}` : '/daily')} className={`${card} flex items-center gap-3 p-4`}>
         <Icon name="timer" size={24} className="text-brand flex-none" />
         <span className="flex-1 min-w-0">
-          <b className="block">오늘의 10분 데일리</b>
+          <b className="block">{basic ? '오늘의 기본 학습' : '오늘의 10분 데일리'}</b>
           <span className="block text-sm text-slate-500 truncate">{rec ? `추천: Vol.${rec.vol} · ${rec.no}과 · ${rec.titleZh}` : '불러오는 중…'}</span>
         </span>
         <Icon name="chevronRight" size={16} className="text-slate-400" />
       </Link>
 
       {lastLesson && (
-        <Link to={`/lesson/${lastLesson.id}/mastery`} className={`${card} flex items-center gap-3 p-4`}>
+        <Link to={`/lesson/${lastLesson.id}${basic ? '' : '/mastery'}`} className={`${card} flex items-center gap-3 p-4`}>
           <Icon name="target" size={24} className="text-brand flex-none" />
           <span className="flex-1 min-w-0">
-            <b className="block">이어 학습하기 (마스터리)</b>
+            <b className="block">{basic ? '이어 학습하기 (교재)' : '이어 학습하기 (마스터리)'}</b>
             <span className="block text-sm text-slate-500 truncate">{lastLesson.no}. {lastLesson.titleZh} · {lastLesson.titleKo}</span>
           </span>
           <Icon name="chevronRight" size={16} className="text-slate-400" />
@@ -193,7 +195,7 @@ export default function HomePage() {
       </div>
       <Link to="/passive" className={`${card} flex items-center gap-3 p-4`}>
         <Icon name="headphones" size={24} className="text-brand flex-none" />
-        <span className="flex-1"><b className="block">편하게 듣기</b><span className="text-sm text-slate-500">해금된 음원 {unlockedCount}과</span></span>
+        <span className="flex-1"><b className="block">편하게 듣기</b><span className="text-sm text-slate-500">{basic ? '바로 듣기' : '해금된 음원'} {unlockedCount}과</span></span>
         <Icon name="chevronRight" size={16} className="text-slate-400" />
       </Link>
       {qr && <InviteQrModal url={appUrl} onClose={() => setQr(false)} />}

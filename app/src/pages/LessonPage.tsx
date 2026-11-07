@@ -9,6 +9,7 @@ import { useOfflineStore } from '../stores/useOfflineStore';
 import Icon from '../components/Icon';
 import type { Lesson, LessonMeta } from '../types/lesson';
 import { usePlaybackFollow } from '../hooks/usePlaybackFollow';
+import { isBasicMode } from '../lib/compatibility';
 
 type Tab = 'text' | 'vocab' | 'grammar' | 'dialog' | 'trap';
 const TABS: [Tab, string][] = [
@@ -20,6 +21,7 @@ const TABS: [Tab, string][] = [
 ];
 
 export default function LessonPage() {
+  const basic = isBasicMode();
   const { id = '' } = useParams();
   const [lesson, setLesson] = useState<Lesson | null | undefined>(undefined);
   const [tab, setTab] = useState<Tab>('text');
@@ -124,9 +126,9 @@ export default function LessonPage() {
         <span lang="zh-Latn-pinyin" className="reading-pinyin">{lesson.titlePinyin}</span> · {lesson.titleKo}
       </div>
       <div ref={follow.controlsRef} className={`flex flex-wrap items-center gap-2 mb-3 ${playing >= 0 ? 'playback-controls' : ''}`} aria-label="듣기 설정">
-        <button type="button" disabled={!canDisplay || !playableVerses.length} onClick={() => nav(`/lesson/${lesson.id}/mastery?source=${masterySource}`)} title={!canDisplay ? '본문·회화 탭에서 사용할 수 있어요.' : undefined} className="inline-flex items-center gap-1.5 rounded-full bg-brand text-white text-sm font-semibold px-3 py-1 disabled:opacity-40 disabled:cursor-not-allowed">
+        {!basic && <button type="button" disabled={!canDisplay || !playableVerses.length} onClick={() => nav(`/lesson/${lesson.id}/mastery?source=${masterySource}`)} title={!canDisplay ? '본문·회화 탭에서 사용할 수 있어요.' : undefined} className="inline-flex items-center gap-1.5 rounded-full bg-brand text-white text-sm font-semibold px-3 py-1 disabled:opacity-40 disabled:cursor-not-allowed">
           <Icon name="target" size={14} /> 4단계 마스터리{masteryResult ? ' (완료)' : ''}
-        </button>
+        </button>}
         <button type="button" disabled={!playableVerses.length} onClick={() => void playAll()} className="inline-flex items-center gap-1.5 rounded-full border border-brand text-brand text-sm font-semibold px-3 py-1 disabled:opacity-40 disabled:cursor-not-allowed">
           <Icon name={playing >= 0 ? 'stop' : 'play'} size={14} /> {playing >= 0 ? '멈추기' : tab === 'text' ? '본문 전체 듣기' : tab === 'dialog' ? '회화 전체 듣기' : '전체 듣기'}
         </button>

@@ -193,6 +193,7 @@ async function main() {
     await tablet.setOffline(true);
     await compatibility.reload();
     await compatibility.getByRole('heading', { name: '설정', exact: true }).waitFor();
+    assert.equal(await compatibility.getByRole('complementary', { name: '기본 학습 모드 안내' }).count(), 1);
     assert.equal(await compatibility.locator('link[rel=manifest]').count(), 0);
     await compatibility.setViewportSize({ width: 1280, height: 800 });
     assert.equal(await compatibility.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
@@ -216,22 +217,39 @@ async function main() {
     await compatibility.waitForTimeout(1300);
     assert.equal(await compatibility.getByRole('dialog', { name: '앱으로 설치하기', exact: true }).count(), 0);
     assert.equal(await compatibility.evaluate(() => window.__compatInstallCalls), 0, '호환 모드에서는 설치 앱을 다시 권하지 않는다.');
-    // 실제 안드로이드 설치는 기기 확인이 필요하다. 여기서는 공식 설치 프롬프트 호출 시 주소를 검증한다.
+    // 기본 모드는 일반 주소로 열어도 네이티브 설치를 권하지 않는다.
     await compatibility.goto(`${base}#/settings`);
     await compatibility.getByRole('heading', { name: '설정', exact: true }).waitFor();
     await compatibility.evaluate(() => {
+      const event = new Event('beforeinstallprompt', { cancelable: true });
+      event.prompt = () => { throw new Error('기본 모드에서 설치 호출'); };
+      event.userChoice = Promise.resolve({ outcome: 'accepted' });
+      window.dispatchEvent(event);
+    });
+    await compatibility.waitForTimeout(1300);
+    assert.equal(await compatibility.getByRole('dialog', { name: '앱으로 설치하기', exact: true }).count(), 0);
+    await tablet.close();
+    // 실제 안드로이드 설치는 기기 확인이 필요하다. 최신 환경의 공식 프롬프트 호출 주소를 검증한다.
+    const supported = await browser.newContext();
+    await supported.addInitScript(() => localStorage.setItem('chintalk-settings', JSON.stringify({ version: 4, state: {
+      onboarded: true, voiceMode: 'device', autoDownload: false, installDismissedAt: 0,
+    } })));
+    const installPage = await supported.newPage();
+    await installPage.goto(`${base}#/settings`);
+    await installPage.getByRole('heading', { name: '설정', exact: true }).waitFor();
+    await installPage.evaluate(() => {
       window.__installPrompts = 0;
       const event = new Event('beforeinstallprompt', { cancelable: true });
       event.prompt = () => { window.__installPrompts++; window.__installUrl = location.href; return Promise.resolve(); };
       event.userChoice = Promise.resolve({ outcome: 'accepted' });
       window.dispatchEvent(event);
     });
-    await compatibility.getByRole('dialog', { name: '앱으로 설치하기', exact: true }).waitFor();
-    assert.equal(await compatibility.evaluate(() => window.__installPrompts), 0, '자동 안내만으로 설치를 호출하지 않는다.');
-    await compatibility.getByRole('button', { name: '설치', exact: true }).click();
-    assert.equal(await compatibility.evaluate(() => window.__installPrompts), 1);
-    assert.equal(await compatibility.evaluate(() => window.__installUrl), `${base}#/`);
-    await tablet.close();
+    await installPage.getByRole('dialog', { name: '앱으로 설치하기', exact: true }).waitFor();
+    assert.equal(await installPage.evaluate(() => window.__installPrompts), 0, '자동 안내만으로 설치를 호출하지 않는다.');
+    await installPage.getByRole('button', { name: '설치', exact: true }).click();
+    assert.equal(await installPage.evaluate(() => window.__installPrompts), 1);
+    assert.equal(await installPage.evaluate(() => window.__installUrl), `${base}#/`);
+    await supported.close();
     console.log('PASS: concrete PNG/maskable icons, stable install/start identity, tablet entry, storage API failure, shared records, offline restart and install from Settings starts at home');
 
     const installed = await browser.newContext();

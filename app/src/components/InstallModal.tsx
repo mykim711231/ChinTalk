@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { isIOS, isInAppBrowser, isStandalone } from '../lib/inapp';
 import { useSettingsStore } from '../stores/useSettingsStore';
 import Icon from './Icon';
+import { isBasicMode } from '../lib/compatibility';
 
 type BIPEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> };
 const WEEK = 7 * 24 * 3600 * 1000;
@@ -20,8 +21,7 @@ export default function InstallModal() {
     return () => window.removeEventListener('beforeinstallprompt', h);
   }, []);
 
-  const browserMode = window.location.pathname === `${import.meta.env.BASE_URL}browser.html`;
-  const eligible = !browserMode && onboarded && !isStandalone() && !isInAppBrowser().kind && Date.now() - installDismissedAt > WEEK;
+  const eligible = !isBasicMode() && onboarded && !isStandalone() && !isInAppBrowser().kind && Date.now() - installDismissedAt > WEEK;
   useEffect(() => {
     const installed = () => { setOpen(false); setEvt(null); };
     window.addEventListener('appinstalled', installed);

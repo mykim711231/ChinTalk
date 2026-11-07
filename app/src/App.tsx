@@ -18,6 +18,8 @@ import HelpPage from './pages/HelpPage';
 import { useSettingsStore } from './stores/useSettingsStore';
 import InstallModal from './components/InstallModal';
 import OfflineStatus from './components/OfflineStatus';
+import { isBasicMode } from './lib/compatibility';
+import { BasicModeNotice, BasicModeUnavailable } from './components/BasicMode';
 
 export default function App() {
   const fontSize = useSettingsStore((s) => s.fontSize);
@@ -25,6 +27,7 @@ export default function App() {
   const onboarded = useSettingsStore((s) => s.onboarded);
   const { pathname } = useLocation();
   const bare = pathname === '/onboarding';
+  const basic = isBasicMode();
   useEffect(() => {
     const el = document.documentElement;
     el.style.setProperty('--fs', fontSize === 'xl' ? '1.4' : fontSize === 'lg' ? '1.2' : '1');
@@ -37,14 +40,15 @@ export default function App() {
     <div className="mx-auto max-w-xl min-h-screen">
       {!bare && <TopBar />}
       <OfflineStatus compact />
+      {!bare && basic && <BasicModeNotice />}
       <Routes>
         <Route path="/" element={home} />
         <Route path="/onboarding" element={<OnboardingPage />} />
         <Route path="/path" element={<PathPage />} />
         <Route path="/lesson/:id" element={<LessonPage />} />
-        <Route path="/lesson/:id/mastery" element={<MasteryPage />} />
+        <Route path="/lesson/:id/mastery" element={basic ? <BasicModeUnavailable feature="마스터리 정밀 학습" /> : <MasteryPage />} />
         <Route path="/study" element={<StudyPage />} />
-        <Route path="/daily" element={<DailyPage />} />
+        <Route path="/daily" element={basic ? <BasicModeUnavailable feature="10분 데일리" /> : <DailyPage />} />
         <Route path="/passive" element={<PassivePage />} />
         <Route path="/help" element={<HelpPage />} />
         <Route path="/settings" element={<SettingsPage />} />
