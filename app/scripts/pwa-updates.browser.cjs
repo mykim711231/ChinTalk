@@ -68,6 +68,8 @@ async function main() {
         page.waitForNavigation({ waitUntil: 'domcontentloaded' }),
         page.getByRole('button', { name: '새 버전 적용·다시 열기', exact: true }).first().click(),
       ]);
+      assert.equal(page.url(), base, '업데이트 후 설정 화면이 아닌 설치 시작 주소에서 시작한다.');
+      await page.getByRole('link', { name: '설정', exact: true }).last().click();
       await page.getByText('현재 최신 버전을 사용하고 있어요.', { exact: true }).waitFor();
     };
     const page = await open();
@@ -105,6 +107,18 @@ async function main() {
     assert.equal(await page.evaluate(async () => (await (await caches.open('tts-audio')).match('/SMCB/tts/keep.mp3')).text()), 'keep-smcb');
     assert.match(await page.getByText(/현재 앱 버전/).textContent(), /현재 앱 버전 \S+ · \S+/);
     console.log('PASS: existing installation updates with two tabs open; no forced reload; next launch and apply use new data; progress, settings and ChinTalk/SMCB audio survive');
+
+    const beforeCheckUrl = page.url();
+    await page.getByRole('button', { name: '업데이트 확인', exact: true }).click();
+    await page.getByText('현재 최신 버전을 사용하고 있어요.', { exact: true }).waitFor();
+    assert.equal(page.url(), beforeCheckUrl, '업데이트 확인만으로 다른 화면으로 이동하지 않는다.');
+    await page.evaluate(() => {
+      const now = Date.now;
+      Date.now = () => now() + 120000;
+      window.dispatchEvent(new Event('online'));
+    });
+    await page.getByText('현재 최신 버전을 사용하고 있어요.', { exact: true }).waitFor();
+    assert.equal(page.url(), beforeCheckUrl, '연결 복구 시 자동 업데이트 확인도 설정 화면으로 이동시키지 않는다.');
 
     version = 2;
     const before = swRequests;
@@ -184,8 +198,29 @@ async function main() {
     assert.equal(await compatibility.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
     assert.equal(await compatibility.evaluate(() => JSON.parse(localStorage.getItem('chintalk-progress')).state.done['v1-01']), true);
     assert.equal(audioRequests, 0); assert.deepEqual(errors, []);
+    await tablet.setOffline(false);
+    await compatibility.evaluate(() => {
+      const settings = JSON.parse(localStorage.getItem('chintalk-settings'));
+      settings.state.installDismissedAt = 0;
+      localStorage.setItem('chintalk-settings', JSON.stringify(settings));
+    });
+    // 실제 안드로이드 설치는 기기 확인이 필요하다. 여기서는 공식 설치 프롬프트 호출 시 주소를 검증한다.
+    await compatibility.goto(`${base}#/settings`);
+    await compatibility.getByRole('heading', { name: '설정', exact: true }).waitFor();
+    await compatibility.evaluate(() => {
+      window.__installPrompts = 0;
+      const event = new Event('beforeinstallprompt', { cancelable: true });
+      event.prompt = () => { window.__installPrompts++; window.__installUrl = location.href; return Promise.resolve(); };
+      event.userChoice = Promise.resolve({ outcome: 'accepted' });
+      window.dispatchEvent(event);
+    });
+    await compatibility.getByRole('dialog', { name: '앱으로 설치하기', exact: true }).waitFor();
+    assert.equal(await compatibility.evaluate(() => window.__installPrompts), 0, '자동 안내만으로 설치를 호출하지 않는다.');
+    await compatibility.getByRole('button', { name: '설치', exact: true }).click();
+    assert.equal(await compatibility.evaluate(() => window.__installPrompts), 1);
+    assert.equal(await compatibility.evaluate(() => window.__installUrl), `${base}#/`);
     await tablet.close();
-    console.log('PASS: concrete PNG/maskable icons decode, stable install identity/start URL, manifest checks, tablet browser entry, storage API failure, shared records and offline restart');
+    console.log('PASS: concrete PNG/maskable icons, stable install/start identity, tablet entry, storage API failure, shared records, offline restart and install from Settings starts at home');
   } finally {
     await browser?.close();
     await new Promise(resolve => server.close(resolve));

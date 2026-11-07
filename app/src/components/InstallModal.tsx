@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { isIOS, isInAppBrowser, isStandalone } from '../lib/inapp';
 import { useSettingsStore } from '../stores/useSettingsStore';
 import Icon from './Icon';
@@ -8,6 +9,7 @@ const WEEK = 7 * 24 * 3600 * 1000;
 
 /** S-010 설치 안내: Android 는 beforeinstallprompt, iOS 는 공유→홈 화면에 추가 가이드. 온보딩 이후 / 7일 후 재표시 */
 export default function InstallModal() {
+  const navigate = useNavigate();
   const { onboarded, installDismissedAt, dismissInstall } = useSettingsStore();
   const [evt, setEvt] = useState<BIPEvent | null>(null);
   const [open, setOpen] = useState(false);
@@ -34,6 +36,8 @@ export default function InstallModal() {
   const close = () => { dismissInstall(); setOpen(false); };
   const install = async () => {
     if (!evt) return;
+    // 설정·학습 상세에서 설치하더라도 시작 화면은 홈으로 통일한다.
+    navigate('/', { replace: true });
     await evt.prompt();
     await evt.userChoice.catch(() => undefined);
     close();
@@ -47,6 +51,7 @@ export default function InstallModal() {
           <h3 id="inst-title" className="text-lg font-bold">앱으로 설치하기</h3>
         </div>
         <p className="text-sm text-slate-700">교재·단어장은 자동으로 저장하고 새 버전도 자동으로 받아 둬요. 기기 음성을 오프라인에서 쓰려면 스마트폰에 중국어 음성팩이 필요해요.</p>
+        {evt && <p className="mt-2 text-xs text-slate-500">설치는 홈 화면 주소로 진행해요.</p>}
         {evt ? (
           <button type="button" onClick={() => void install()} className="w-full mt-4 rounded-full bg-brand text-white font-semibold py-3">설치</button>
         ) : (

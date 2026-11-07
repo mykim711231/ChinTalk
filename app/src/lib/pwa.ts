@@ -120,7 +120,7 @@ export function checkForUpdate(force = false): Promise<void> {
   return checking;
 }
 
-/** 사용자가 적용을 눌렀을 때 이 화면만 다시 연다. 진도·설정·음원 캐시는 유지한다. */
+/** 사용자가 적용을 누르면 설치 시작 주소인 홈으로 다시 연다. 진도·설정·음원 캐시는 유지한다. */
 export async function applyAppUpdate(): Promise<void> {
   if (!useOfflineStore.getState().updateReady || useOfflineStore.getState().updateState === 'applying') return;
   useOfflineStore.setState({ updateState: 'applying' });
@@ -138,7 +138,8 @@ export async function applyAppUpdate(): Promise<void> {
       incoming.postMessage({ type: 'SKIP_WAITING' });
       if (incoming.state === 'activated' && navigator.serviceWorker.controller === incoming) finish();
     });
-    window.location.reload();
+    const entry = window.location.pathname === `${B}browser.html` ? `${B}browser.html` : B;
+    window.location.replace(new URL(entry, window.location.origin).href);
   } catch { useOfflineStore.setState({ updateState: 'error' }); }
 }
 
