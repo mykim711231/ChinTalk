@@ -9,7 +9,12 @@ const root = path.resolve(__dirname, '../dist');
 const sw = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
 assert.ok(sw.includes('self.skipWaiting()'), '새 워커는 다른 탭 종료를 기다리지 않아야 한다.');
 const dictionary = JSON.parse(fs.readFileSync(path.join(root, 'data/word-dict.json'), 'utf8'));
-const mime = { '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.html': 'text/html', '.svg': 'image/svg+xml', '.webmanifest': 'application/manifest+json' };
+const manifest = JSON.parse(fs.readFileSync(path.join(root, 'manifest.webmanifest'), 'utf8'));
+assert.equal(manifest.start_url, '/ChinTalk/');
+assert.equal(manifest.id, '/ChinTalk/');
+assert.equal(manifest.scope, '/ChinTalk/');
+assert.ok(!fs.readFileSync(path.join(root, 'browser.html'), 'utf8').includes('rel="manifest"'));
+const mime = { '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.html': 'text/html', '.svg': 'image/svg+xml', '.png': 'image/png', '.webmanifest': 'application/manifest+json' };
 let version = 0, failInstall = false, swRequests = 0, audioRequests = 0;
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, 'http://localhost');
@@ -133,6 +138,54 @@ async function main() {
     assert.deepEqual(errors, []);
     console.log('PASS: offline update message, offline restart and zero mp3 requests in device mode');
     await context.close();
+
+    // UA·화면 크기만 모의한다. 실제 Android의 WebAPK 설치·실행 검증을 대신하지 않는다.
+    const tablet = await browser.newContext({ viewport: { width: 800, height: 1280 }, isMobile: true, hasTouch: true,
+      userAgent: 'Mozilla/5.0 (Linux; Android 8.0.0; AGS2-L09) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.7204.179 Safari/537.36' });
+    await tablet.addInitScript(() => {
+      // 구형 기기에서 선택적 저장소 요청이 동기 예외를 내더라도 첫 화면과 SW 준비는 진행해야 한다.
+      Object.defineProperty(navigator.storage, 'persist', { value() { throw new DOMException('storage unavailable', 'SecurityError'); } });
+      if (!localStorage.getItem('chintalk-settings')) localStorage.setItem('chintalk-settings', JSON.stringify({ version: 4, state: {
+        onboarded: true, voiceMode: 'device', autoDownload: true, installDismissedAt: Date.now(),
+      } }));
+      if (!localStorage.getItem('chintalk-progress')) localStorage.setItem('chintalk-progress', JSON.stringify({ version: 0, state: { done: { 'v1-01': true } } }));
+    });
+    const compatibility = await tablet.newPage(); compatibility.setDefaultTimeout(20000);
+    compatibility.on('pageerror', e => errors.push(e.message));
+    await compatibility.goto(`${base}browser.html#/settings`);
+    await compatibility.getByRole('heading', { name: '설정', exact: true }).waitFor();
+    await compatibility.getByText('현재 최신 버전을 사용하고 있어요.', { exact: true }).waitFor();
+    assert.equal(await compatibility.locator('link[rel=manifest]').count(), 0);
+    const pngs = manifest.icons.filter(icon => icon.type === 'image/png');
+    assert.ok(pngs.some(icon => icon.sizes === '192x192' && icon.purpose === 'any'));
+    assert.ok(pngs.some(icon => icon.sizes === '512x512' && icon.purpose === 'any'));
+    assert.ok(pngs.some(icon => icon.sizes === '512x512' && icon.purpose === 'maskable'));
+    for (const icon of pngs) {
+      const decoded = await compatibility.evaluate(async src => {
+        const image = await createImageBitmap(await (await fetch(src)).blob());
+        const canvas = document.createElement('canvas'); canvas.width = canvas.height = image.width;
+        const drawing = canvas.getContext('2d'); drawing.drawImage(image, 0, 0);
+        return { size: `${image.width}x${image.height}`, alpha: drawing.getImageData(0, 0, 1, 1).data[3] };
+      }, `${base}${icon.src}`);
+      assert.equal(decoded.size, icon.sizes); assert.equal(decoded.alpha, 255);
+    }
+    const regular = await tablet.newPage(); regular.on('pageerror', e => errors.push(e.message));
+    await regular.goto(new URL(manifest.start_url, base).href);
+    await regular.locator('main h1').waitFor();
+    const cdp = await tablet.newCDPSession(regular);
+    assert.equal((await cdp.send('Page.getAppManifest')).errors.length, 0);
+    assert.deepEqual((await cdp.send('Page.getInstallabilityErrors')).installabilityErrors, []);
+    assert.equal(await regular.evaluate(() => JSON.parse(localStorage.getItem('chintalk-progress')).state.done['v1-01']), true);
+    await tablet.setOffline(true);
+    await compatibility.reload();
+    await compatibility.getByRole('heading', { name: '설정', exact: true }).waitFor();
+    assert.equal(await compatibility.locator('link[rel=manifest]').count(), 0);
+    await compatibility.setViewportSize({ width: 1280, height: 800 });
+    assert.equal(await compatibility.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+    assert.equal(await compatibility.evaluate(() => JSON.parse(localStorage.getItem('chintalk-progress')).state.done['v1-01']), true);
+    assert.equal(audioRequests, 0); assert.deepEqual(errors, []);
+    await tablet.close();
+    console.log('PASS: concrete PNG/maskable icons decode, stable install identity/start URL, manifest checks, tablet browser entry, storage API failure, shared records and offline restart');
   } finally {
     await browser?.close();
     await new Promise(resolve => server.close(resolve));

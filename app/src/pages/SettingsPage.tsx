@@ -220,7 +220,14 @@ export default function SettingsPage() {
 
       <section>
         <SectionHeader title="앱 업데이트" subtitle="기존에 설치한 앱에서 계속 사용해요. 새로 설치할 필요 없어요." />
-        <Card className="p-4"><AppUpdate /></Card>
+        <Card className="p-4 space-y-3">
+          <AppUpdate />
+          <div className="border-t border-slate-200 pt-3 text-sm space-y-2">
+            <p>Android 8·9 태블릿에서 설치한 앱이 바로 닫히면 Chrome으로 여는 호환용 바로가기를 사용해 보세요.</p>
+            <a className="inline-block rounded-full border border-brand px-3 py-2 font-semibold text-brand" href={`${import.meta.env.BASE_URL}browser.html#/`}>브라우저 호환 모드 열기</a>
+            <p className="text-xs text-slate-500">호환 화면을 Chrome에서 연 뒤 ⋮ → 홈 화면에 추가를 누르세요. 같은 Chrome의 학습 기록과 저장 자료를 사용해요.</p>
+          </div>
+        </Card>
       </section>
 
       <section>

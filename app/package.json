@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "vite",
     "build:content": "tsx scripts/build-content.ts",
+    "build:icons": "node scripts/build-icons.cjs",
     "build:tts": "tsx scripts/build-tts.ts",
     "verify:tts": "tsx scripts/verify-tts-coverage.ts",
     "test:meaning": "tsx --test scripts/meaning-units.test.ts",

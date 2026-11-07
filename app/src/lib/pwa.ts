@@ -185,7 +185,7 @@ export function startOfflineFeatures(): void {
     useOfflineStore.setState({ core: 'unsupported' });
     return;
   }
-  void navigator.storage?.persist?.().catch(() => false);
+  void Promise.resolve().then(() => navigator.storage?.persist?.()).catch(() => false);
   let previousController = navigator.serviceWorker.controller;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     const current = navigator.serviceWorker.controller;
