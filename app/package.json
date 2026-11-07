@@ -15,6 +15,7 @@
     "test:pwa": "npm run build && node scripts/pwa-updates.browser.cjs",
     "test:follow": "npm run build && node scripts/playback-follow.browser.cjs",
     "test:basic": "npm run build && node scripts/basic-mode.browser.cjs",
+    "test:learning-listening": "npm run build && node scripts/learning-listening.browser.cjs",
     "build": "npm run build:content && tsc --noEmit && vite build",
     "preview": "vite preview"
   },

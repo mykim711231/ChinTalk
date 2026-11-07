@@ -1,15 +1,15 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { loadLesson, loadMeta } from '../lib/contentLoader';
-import { speak, speakAsync, stopSpeak } from '../lib/tts';
+import { speak } from '../lib/tts';
 import ChunkCard from '../components/ChunkCard';
 import { useSettingsStore } from '../stores/useSettingsStore';
 import { getMasteryResult, useProgressStore } from '../stores/useProgressStore';
-import { useOfflineStore } from '../stores/useOfflineStore';
 import Icon from '../components/Icon';
 import type { Lesson, LessonMeta } from '../types/lesson';
 import { usePlaybackFollow } from '../hooks/usePlaybackFollow';
 import { isBasicMode } from '../lib/compatibility';
+import { useLessonPlayback } from '../hooks/useLessonPlayback';
 
 type Tab = 'text' | 'vocab' | 'grammar' | 'dialog' | 'trap';
 const TABS: [Tab, string][] = [
@@ -25,26 +25,24 @@ export default function LessonPage() {
   const { id = '' } = useParams();
   const [lesson, setLesson] = useState<Lesson | null | undefined>(undefined);
   const [tab, setTab] = useState<Tab>('text');
-  const { showZh, showPinyin, showKo, showMeaningUnits, toggle } = useSettingsStore();
+  const settings = useSettingsStore();
+  const { showMeaningUnits, toggle } = settings;
   const progress = useProgressStore();
   const { done, markDone, setLast } = progress;
   const [meta, setMeta] = useState<LessonMeta[]>([]);
-  const [playing, setPlaying] = useState(-1);
-  const token = useRef(0);
-  const follow = usePlaybackFollow(playing, `${lesson?.id ?? ''}:${tab}`);
-  const stopAll = useCallback(() => { token.current++; stopSpeak(); setPlaying(-1); }, []);
   const touch = useRef<{ x: number; y: number } | null>(null);
   const nav = useNavigate();
   const playableVerses = tab === 'text' ? lesson?.text ?? []
     : tab === 'dialog' ? lesson?.dialogs.flatMap((d) => d.turns.map((t) => t.verse)) ?? []
     : [];
+  const playback = useLessonPlayback(playableVerses, `${id}:${tab}`);
+  const { playing, pass, display, stop: stopAll } = playback;
+  const { showZh, showPinyin, showKo } = display ?? settings;
+  const learning = pass !== null;
+  const ordinary = playing >= 0 && !learning;
+  const follow = usePlaybackFollow(playing, `${lesson?.id ?? ''}:${tab}:${pass ?? ''}`);
 
   useEffect(() => { void loadMeta().then(setMeta); }, []);
-  // 과를 벗어나면 연속 재생 중단
-  useEffect(() => {
-    setPlaying(-1);
-    return () => { token.current++; stopSpeak(); };
-  }, [id]);
   // 스크롤 70% 이상 → 읽기 완료 (해금과 무관)
   useEffect(() => {
     if (!lesson) return;
@@ -57,20 +55,6 @@ export default function LessonPage() {
     return () => window.removeEventListener('scroll', onScroll);
   }, [lesson, markDone, tab]);
 
-  const playAll = async () => {
-    if (!playableVerses.length) return;
-    if (playing >= 0) { stopAll(); return; }
-    const my = ++token.current;
-    for (let i = 0; i < playableVerses.length; i++) {
-      if (token.current !== my) return;
-      setPlaying(i);
-      await speakAsync(playableVerses[i].zh);
-      if (token.current !== my) return;
-      if (useOfflineStore.getState().playbackError) { setPlaying(-1); return; }
-      await new Promise((r) => setTimeout(r, 1000)); // 자동 연속 재생 간격
-    }
-    if (token.current === my) setPlaying(-1);
-  };
   const selectTab = (nextTab: Tab) => {
     if (nextTab === tab) return;
     stopAll();
@@ -90,11 +74,14 @@ export default function LessonPage() {
   };
 
   useEffect(() => {
+    let active = true;
     setLesson(undefined);
     loadLesson(id).then((l) => {
+      if (!active) return;
       setLesson(l ?? null);
       if (l) setLast(l.id);
     });
+    return () => { active = false; };
   }, [id, setLast]);
 
   if (lesson === undefined) return <main className="p-4">불러오는 중…</main>;
@@ -129,11 +116,16 @@ export default function LessonPage() {
         {!basic && <button type="button" disabled={!canDisplay || !playableVerses.length} onClick={() => nav(`/lesson/${lesson.id}/mastery?source=${masterySource}`)} title={!canDisplay ? '본문·회화 탭에서 사용할 수 있어요.' : undefined} className="inline-flex items-center gap-1.5 rounded-full bg-brand text-white text-sm font-semibold px-3 py-1 disabled:opacity-40 disabled:cursor-not-allowed">
           <Icon name="target" size={14} /> 4단계 마스터리{masteryResult ? ' (완료)' : ''}
         </button>}
-        <button type="button" disabled={!playableVerses.length} onClick={() => void playAll()} className="inline-flex items-center gap-1.5 rounded-full border border-brand text-brand text-sm font-semibold px-3 py-1 disabled:opacity-40 disabled:cursor-not-allowed">
-          <Icon name={playing >= 0 ? 'stop' : 'play'} size={14} /> {playing >= 0 ? '멈추기' : tab === 'text' ? '본문 전체 듣기' : tab === 'dialog' ? '회화 전체 듣기' : '전체 듣기'}
+        <button type="button" disabled={!playableVerses.length} onClick={() => { if (ordinary) stopAll(); else void playback.play('once'); }} className="inline-flex items-center gap-1.5 rounded-full border border-brand text-brand text-sm font-semibold px-3 py-1 disabled:opacity-40 disabled:cursor-not-allowed">
+          <Icon name={ordinary ? 'stop' : 'play'} size={14} /> {ordinary ? '멈추기' : tab === 'text' ? '본문 전체 듣기' : tab === 'dialog' ? '회화 전체 듣기' : '전체 듣기'}
         </button>
-        {playing >= 0 && <span role="status" className="text-xs text-slate-500">재생 중 {playing + 1}/{playableVerses.length}문장</span>}
+        <button type="button" disabled={!playableVerses.length} aria-pressed={learning} aria-describedby="learning-listening-guide" onClick={() => { if (learning) stopAll(); else void playback.play('learning'); }} className="inline-flex items-center gap-1.5 rounded-full border border-brand text-brand text-sm font-semibold px-3 py-1 disabled:opacity-40 disabled:cursor-not-allowed">
+          <Icon name={learning ? 'stop' : 'repeat'} size={14} /> {learning ? '학습 듣기 멈추기' : tab === 'text' ? '본문 4회 학습 듣기' : tab === 'dialog' ? '회화 4회 학습 듣기' : '4회 학습 듣기'}
+        </button>
+        {playing >= 0 && <span role="status" className="text-xs text-slate-500">{learning ? `${pass + 1}/4회 · ${playback.passLabel} · ` : '재생 중 '}{playing + 1}/{playableVerses.length}문장</span>}
       </div>
+      {playback.completed && <p role="status" className="text-sm text-brand mb-2">4회 학습 듣기를 마쳤어요. 기존 표시 설정으로 돌아왔어요.</p>}
+      <p id="learning-listening-guide" className="text-xs text-slate-500 mb-3">4회 학습 듣기: 병음만 → 한글만 → 한자만 → 모두 표시. 매회 선택한 내용 전체를 듣고, 종료하면 기존 표시 설정으로 돌아와요.</p>
       <div className="flex gap-1 overflow-x-auto mb-3 border-b border-slate-200">
         {TABS.map(([k, label]) => (
           <button
@@ -148,13 +140,13 @@ export default function LessonPage() {
         ))}
       </div>
       <div className="flex flex-wrap gap-2 mb-3">
-        <button type="button" disabled={!canDisplay} aria-pressed={showZh} className={chip(showZh)} onClick={() => toggle('showZh')}>
+        <button type="button" disabled={!canDisplay || learning} aria-pressed={showZh} className={chip(showZh)} onClick={() => toggle('showZh')}>
           한자
         </button>
-        <button type="button" disabled={!canDisplay} aria-pressed={showPinyin} className={chip(showPinyin)} onClick={() => toggle('showPinyin')}>
+        <button type="button" disabled={!canDisplay || learning} aria-pressed={showPinyin} className={chip(showPinyin)} onClick={() => toggle('showPinyin')}>
           병음
         </button>
-        <button type="button" disabled={!canDisplay} aria-pressed={showKo} className={chip(showKo)} onClick={() => toggle('showKo')}>
+        <button type="button" disabled={!canDisplay || learning} aria-pressed={showKo} className={chip(showKo)} onClick={() => toggle('showKo')}>
           한글
         </button>
         <button type="button" disabled={!canDisplay} aria-pressed={showMeaningUnits} className={chip(showMeaningUnits)} onClick={() => toggle('showMeaningUnits')} aria-label="의미단위 표시">
@@ -163,7 +155,7 @@ export default function LessonPage() {
       </div>
 
       {tab === 'text' && lesson.text.map((v, i) => (
-        <div key={i} data-playback-line={i} aria-current={i === playing ? 'true' : undefined} className={i === playing ? 'ring-2 ring-brand rounded-xl' : ''}><ChunkCard verse={v} onBeforeSpeak={stopAll} /></div>
+        <div key={i} data-playback-line={i} aria-current={i === playing ? 'true' : undefined} className={i === playing ? 'ring-2 ring-brand rounded-xl' : ''}><ChunkCard verse={v} onBeforeSpeak={stopAll} display={display} /></div>
       ))}
 
       {tab === 'vocab' && (
@@ -227,7 +219,7 @@ export default function LessonPage() {
             <h3 className="font-semibold text-sm mb-1">{d.title}</h3>
             {d.turns.map((t, j) => (
               <div key={j} data-playback-line={lesson.dialogs.slice(0, i).reduce((n, section) => n + section.turns.length, 0) + j} aria-current={lesson.dialogs.slice(0, i).reduce((n, section) => n + section.turns.length, 0) + j === playing ? 'true' : undefined} className={lesson.dialogs.slice(0, i).reduce((n, section) => n + section.turns.length, 0) + j === playing ? 'ring-2 ring-brand rounded-xl' : ''}>
-                <ChunkCard verse={t.verse} speaker={t.speaker} onBeforeSpeak={stopAll} />
+                <ChunkCard verse={t.verse} speaker={t.speaker} onBeforeSpeak={stopAll} display={display} />
               </div>
             ))}
           </div>

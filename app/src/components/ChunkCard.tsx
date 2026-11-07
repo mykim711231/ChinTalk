@@ -5,13 +5,16 @@ import type { Verse } from '../types/lesson';
 import Icon from './Icon';
 import HanText from './HanText';
 import { alignChars } from '../lib/pinyin';
+import type { CaptionDisplay } from '../lib/learningListening';
 
 const BG: Record<Color, string> = { green: 'bg-green-50', yellow: 'bg-yellow-50', red: 'bg-red-50' };
 const DOT: Record<Color, string> = { green: 'bg-green-600', yellow: 'bg-yellow-500', red: 'bg-red-600' };
 const LABEL: Record<Color, string> = { green: '바로 이해', yellow: '헷갈림', red: '완전 생소' };
 
-export default function ChunkCard({ verse, speaker, onBeforeSpeak }: { verse: Verse; speaker?: string; onBeforeSpeak?: () => void }) {
-  const { showZh, showPinyin, showKo, showMeaningUnits } = useSettingsStore();
+export default function ChunkCard({ verse, speaker, onBeforeSpeak, display }: { verse: Verse; speaker?: string; onBeforeSpeak?: () => void; display?: CaptionDisplay }) {
+  const settings = useSettingsStore();
+  const { showZh, showPinyin, showKo } = display ?? settings;
+  const { showMeaningUnits } = settings;
   const { marks, cycle } = useHighlightStore();
   const key = verse.chunks[0]?.id ?? verse.zh;
   const aligned = !!alignChars(verse.zh, verse.pinyin);
