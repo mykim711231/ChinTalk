@@ -20,7 +20,8 @@ export default function InstallModal() {
     return () => window.removeEventListener('beforeinstallprompt', h);
   }, []);
 
-  const eligible = onboarded && !isStandalone() && !isInAppBrowser().kind && Date.now() - installDismissedAt > WEEK;
+  const browserMode = window.location.pathname === `${import.meta.env.BASE_URL}browser.html`;
+  const eligible = !browserMode && onboarded && !isStandalone() && !isInAppBrowser().kind && Date.now() - installDismissedAt > WEEK;
   useEffect(() => {
     const installed = () => { setOpen(false); setEvt(null); };
     window.addEventListener('appinstalled', installed);
@@ -59,6 +60,9 @@ export default function InstallModal() {
             <li>Safari 하단의 <b>공유(↑)</b> 버튼을 누르세요.</li>
             <li><b>홈 화면에 추가</b>를 선택하세요.</li>
           </ol>
+        )}
+        {evt && /Android/i.test(navigator.userAgent) && (
+          <a href={`${import.meta.env.BASE_URL}browser.html#/`} className="mt-3 block text-center text-sm font-semibold text-brand underline">설치한 앱이 바로 닫히면 Chrome 바로가기 사용</a>
         )}
         <button type="button" onClick={close} className="w-full mt-2 rounded-full border border-slate-300 bg-white font-semibold py-2.5">
           나중에 (7일간 보지 않기)

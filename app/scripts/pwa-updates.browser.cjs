@@ -204,6 +204,18 @@ async function main() {
       settings.state.installDismissedAt = 0;
       localStorage.setItem('chintalk-settings', JSON.stringify(settings));
     });
+    await compatibility.reload();
+    await compatibility.getByRole('heading', { name: '설정', exact: true }).waitFor();
+    await compatibility.evaluate(() => {
+      window.__compatInstallCalls = 0;
+      const event = new Event('beforeinstallprompt', { cancelable: true });
+      event.prompt = () => { window.__compatInstallCalls++; return Promise.resolve(); };
+      event.userChoice = Promise.resolve({ outcome: 'accepted' });
+      window.dispatchEvent(event);
+    });
+    await compatibility.waitForTimeout(1300);
+    assert.equal(await compatibility.getByRole('dialog', { name: '앱으로 설치하기', exact: true }).count(), 0);
+    assert.equal(await compatibility.evaluate(() => window.__compatInstallCalls), 0, '호환 모드에서는 설치 앱을 다시 권하지 않는다.');
     // 실제 안드로이드 설치는 기기 확인이 필요하다. 여기서는 공식 설치 프롬프트 호출 시 주소를 검증한다.
     await compatibility.goto(`${base}#/settings`);
     await compatibility.getByRole('heading', { name: '설정', exact: true }).waitFor();
@@ -221,6 +233,28 @@ async function main() {
     assert.equal(await compatibility.evaluate(() => window.__installUrl), `${base}#/`);
     await tablet.close();
     console.log('PASS: concrete PNG/maskable icons, stable install/start identity, tablet entry, storage API failure, shared records, offline restart and install from Settings starts at home');
+
+    const installed = await browser.newContext();
+    await installed.addInitScript(() => {
+      localStorage.setItem('chintalk-settings', JSON.stringify({ version: 4, state: {
+        onboarded: true, voiceMode: 'device', autoDownload: false, installDismissedAt: Date.now(),
+      } }));
+      const match = window.matchMedia.bind(window);
+      window.matchMedia = query => {
+        const media = match(query);
+        if (query === '(display-mode: standalone)') Object.defineProperty(media, 'matches', { value: true });
+        return media;
+      };
+    });
+    const resumed = await installed.newPage();
+    await resumed.goto(`${base}#/settings`);
+    await resumed.locator('main h1').waitFor();
+    assert.equal(resumed.url(), base, '예전 설치 주소가 설정이어도 새 부팅은 홈으로 정규화한다.');
+    await resumed.getByRole('link', { name: '설정', exact: true }).last().click();
+    await resumed.getByRole('heading', { name: '설정', exact: true }).waitFor();
+    assert.equal(new URL(resumed.url()).hash, '#/settings', '앱 안의 설정 이동은 유지한다.');
+    await installed.close();
+    console.log('PASS: standalone startup at a remembered Settings URL opens home, while in-app Settings navigation remains available (mode emulation)');
   } finally {
     await browser?.close();
     await new Promise(resolve => server.close(resolve));

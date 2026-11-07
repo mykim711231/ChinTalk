@@ -138,12 +138,34 @@ const GUIDES: Item[] = [
         <li>기존에 설치한 앱도 자동으로 새 버전을 받아요. <b>설정 → 앱 업데이트</b>에서 현재 버전과 <b>업데이트 확인</b>을 볼 수 있어요. <b>새 버전 적용·다시 열기</b>를 누르면 다른 창을 모두 닫지 않아도 적용돼요. 학습 진도·설정·저장한 음원은 유지돼요.</li>
         <li>홈 화면 아이콘 추가는 브라우저의 <b>설치</b> 또는 <b>추가</b> 버튼을 직접 눌러야 해요.</li>
         <li><b>Android (Chrome)</b> — 메뉴(⋮) → <b>홈 화면에 추가</b> 또는 <b>앱 설치</b></li>
-        <li><b>안드로이드에서 설치한 앱만 바로 닫히면</b> — Chrome에서 이 사이트를 직접 열어 확인하고, Play 스토어에서 이 기기에 제공되는 Chrome 업데이트를 확인한 뒤 태블릿을 다시 시작해 보세요.</li>
-        <li><b>Android 8·9 구형 태블릿</b> — <L to="/settings">설정 → 브라우저 호환 모드 열기</L>를 눌러 Chrome에서 연 뒤, ⋮ → <b>홈 화면에 추가</b>로 바로가기를 만드세요. 이 바로가기는 Chrome으로 열리며, 같은 Chrome의 학습 기록·저장 자료를 사용해요. Chrome의 사이트 데이터를 지울 필요 없어요.</li>
+        <li><b>설치한 앱이 바로 닫히거나 Android 8·9 기기라면</b> — 아래 <b>구형 Android·Chrome 기기에서 사용하기</b> 항목의 Chrome 바로가기 방법을 확인하세요.</li>
         <li><b>iPhone / iPad (Safari)</b> — 공유(↑) → <b>홈 화면에 추가</b></li>
         <li><b>PC (Chrome·Edge)</b> — 주소창 오른쪽의 <b>설치(⊕)</b> 아이콘</li>
         <li className="text-xs text-slate-500">카카오톡 등 인앱 브라우저에서는 설치가 안 됩니다. 주소를 복사해 Chrome/Safari에서 여세요.</li>
       </ul>
+    ),
+  },
+  {
+    id: 'older-android', icon: 'help', title: '구형 Android·Chrome 기기에서 사용하기',
+    subtitle: 'Chrome 지원이 끝난 기기와 설치한 앱이 바로 닫힐 때의 안내.',
+    keywords: '구형 오래된 태블릿 안드로이드 Android 8 Android8 Android 8.0 Android 9 Android9 Chrome 크롬 138 크롬138 지원 종료 설치 실행 안됨 바로 닫힘 꺼짐 바로가기 호환 모드 Huawei 화웨이 AGS2-L09 WebAPK',
+    body: (
+      <>
+        <Box>
+          <p><b>Android 8·9는 Chrome 138이 마지막 지원 버전</b>이에요. Chrome 139부터는 Android 10 이상이 필요해요. 이 기기에서는 Chrome을 업데이트해도 최신 버전까지 올라가지 않을 수 있어요.</p>
+          <a href="https://groups.google.com/a/chromium.org/g/chromium-dev/c/vEZz0721rUY" target="_blank" rel="noopener noreferrer" className="inline-block text-brand font-semibold underline mt-2">Google Chrome 팀의 지원 종료 안내 (인터넷 연결 필요)</a>
+        </Box>
+        <p>지원 종료가 곧 ChinTalk를 사용할 수 없다는 뜻은 아니에요. <b>기존 설치 앱이 정상 작동하면 그대로 사용하세요.</b> 삭제 후 다시 설치하면 실행 상태가 달라질 수 있어요.</p>
+        <p><b>설치 아이콘을 누르면 잠깐 열렸다 닫히지만 Chrome에서는 정상 작동한다면</b>, 설치형 앱과 기기의 호환 문제일 수 있어요. Chrome으로 여는 바로가기를 사용해 보세요.</p>
+        <ol className="list-decimal pl-5 space-y-2">
+          <li>카카오톡 등 앱 안의 브라우저가 아닌 <b>Chrome</b>에서 ChinTalk 사이트를 직접 열어 정상 실행되는지 확인하세요.</li>
+          <li>Play 스토어에서 <b>이 기기에 제공되는 Chrome 업데이트</b>를 확인하세요. Chrome 버전은 <b>⋮ → 설정 → Chrome 정보</b>에서 볼 수 있어요.</li>
+          <li><a href={`${import.meta.env.BASE_URL}browser.html#/`} className="text-brand font-semibold underline">브라우저 호환 모드 열기</a>를 누르세요. <b>설정 → 앱 업데이트</b>에서도 열 수 있어요.</li>
+          <li>Chrome의 <b>⋮ → 홈 화면에 추가 → 바로가기 만들기</b>를 선택하세요. <b>앱 설치</b>와 선택지가 나뉘면 <b>바로가기 만들기</b>를 고르세요. 메뉴 이름은 Chrome 버전에 따라 달라질 수 있어요.</li>
+          <li>새로 만든 <b>ChinTalk · 브라우저</b> 바로가기로 여세요. Chrome 화면에서 실행되며, 같은 Chrome 프로필의 학습 기록·설정·저장 자료를 사용해요.</li>
+        </ol>
+        <Tip>바로가기를 만들기 위해 기존 앱을 삭제하거나 Chrome 사이트 데이터를 지울 필요는 없어요. 삭제·데이터 초기화가 필요하다면 먼저 <L to="/settings">설정에서 학습 기록을 백업</L>하세요. 바로가기 실행도 안 되면 Chrome에서 직접 열어 사용하세요.</Tip>
+      </>
     ),
   },
   {
@@ -177,6 +199,7 @@ const GUIDES: Item[] = [
 const FAQ: { q: string; a: string; keywords?: string }[] = [
   { q: '무료인가요?', a: '네, 학습용 무료 앱입니다. 광고도 회원가입도 없어요.', keywords: '무료 가격 광고 회원' },
   { q: '인터넷 없이도 되나요?', a: '전권 교재·단어장 자동 저장이 완료되면 사용할 수 있어요. 기기 음성은 해당 언어의 오프라인 음성팩이 필요하고, 녹음 음성은 미리 저장이 끝난 파일을 재생합니다. 설정에서 저장 상태를 확인하세요.', keywords: '오프라인 인터넷 데이터 음성팩 자동 저장' },
+  { q: '구형 태블릿에서 설치 앱만 바로 닫혀요.', a: 'Chrome에서 사이트가 정상 실행된다면 도움말의 ‘구형 Android·Chrome 기기에서 사용하기’를 확인하세요. 브라우저 호환 모드를 열고 Chrome의 홈 화면에 추가 → 바로가기 만들기를 사용해 보세요. 기존 설치 앱이 정상 작동한다면 삭제하거나 재설치할 필요는 없어요.', keywords: '구형 태블릿 안드로이드 Android8 Android9 지원 종료 설치 실행 닫힘 꺼짐 바로가기 호환 AGS2-L09' },
   { q: '내 진도가 사라졌어요.', a: '브라우저 데이터가 지워졌거나 다른 브라우저/기기에서 열었을 수 있어요. 진도는 기기마다 따로 저장됩니다. 미리 백업해 두었다면 설정에서 복원하세요.', keywords: '진도 사라짐 복원 백업' },
   { q: '음성이 사람 목소리가 아니에요.', a: '기기 음성은 스마트폰의 음성 합성을 사용합니다. 녹음 음성은 Microsoft Edge Neural 음성으로 만들었습니다. 설정에서 재생 방식과 중국어 기기 음성을 선택할 수 있어요.', keywords: '음성 목소리 ai 합성 xiaoxiao 기기 녹음' },
   { q: '내용이 틀린 것 같아요.', a: '학습 콘텐츠는 AI의 도움으로 제작한 뒤 직접 검수·편집했습니다. 오류를 발견하면 앱 정보 화면의 연락처로 알려 주세요.', keywords: '오류 틀림 신고 문의 ai 콘텐츠' },
