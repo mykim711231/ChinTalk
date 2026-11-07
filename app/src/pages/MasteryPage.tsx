@@ -17,6 +17,7 @@ import HanText from '../components/HanText';
 import { alignChars } from '../lib/pinyin';
 import { Toggle } from '../components/ui';
 import { useShadowing, type ShadowingController } from '../hooks/useShadowing';
+import { usePlaybackFollow } from '../hooks/usePlaybackFollow';
 
 const STAGES = ['Blind', 'Script', 'Shadowing', 'Final'] as const;
 const btn = 'inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white text-sm font-semibold px-3 py-2 disabled:opacity-40';
@@ -82,6 +83,7 @@ function MasteryContent({ id, source, onSourceChange }: {
   const lines = useMemo(() => lesson ? studyLines(lesson, source) : [], [lesson, source]);
   const all = usePlayAll(lines);
   const shadow = useShadowing(lines, all.stop);
+  const follow = usePlaybackFollow(stage === 1 || stage === 2 ? all.playing : -1, `${lesson?.id ?? ''}:${source}:${stage}`);
   const nav = useNavigate();
   const [metas, setMetas] = useState<LessonMeta[]>([]);
   useEffect(() => { void loadMeta().then(setMetas); }, []);
@@ -116,7 +118,7 @@ function MasteryContent({ id, source, onSourceChange }: {
     lesson.traps.filter((t) => c.zh.includes(t.target) || c.pinyin.toLowerCase().includes(t.target.toLowerCase()));
 
   return (
-    <main className="p-4 pb-24 space-y-4">
+    <main ref={follow.readingRef} className="p-4 pb-24 space-y-4">
       <Link to={`/lesson/${lesson.id}`} className="text-sm text-slate-500">← {lesson.no}. {lesson.titleZh} 과 참고</Link>
       <div className="flex items-baseline justify-between gap-2">
         <h1 className="text-xl font-bold">4단계 마스터리</h1>
@@ -145,7 +147,7 @@ function MasteryContent({ id, source, onSourceChange }: {
         ))}
       </ol>
 
-      <div className="flex flex-wrap items-center gap-3" aria-label="듣기와 표시 설정">
+      <div ref={follow.controlsRef} className={`flex flex-wrap items-center gap-3 ${all.playing >= 0 ? 'playback-controls' : ''}`} aria-label="듣기와 표시 설정">
         <button type="button" disabled={!lines.length || !!shadow.capture} className={btnBrand} onClick={() => {
           shadow.stopPlayback();
           if (all.playing >= 0) all.stop(); else void all.play();
@@ -156,6 +158,7 @@ function MasteryContent({ id, source, onSourceChange }: {
           <span>의미단위 표시</span>
           <Toggle label="의미단위 표시" on={showMeaningUnits} onClick={() => toggle('showMeaningUnits')} />
         </div>
+        {all.playing >= 0 && <span role="status" className="text-xs text-slate-500">재생 중 {all.playing + 1}/{lines.length}문장</span>}
       </div>
 
       {stage === 0 && (
@@ -191,7 +194,7 @@ function MasteryContent({ id, source, onSourceChange }: {
         <section className="space-y-3">
           <p className="text-sm text-slate-600">스크립트를 보며 듣고, 구절을 눌러 발음 함정을 확인하세요.</p>
           {lines.map(({ verse: v, speaker, section }, i) => (
-            <div key={i} className={i === all.playing ? 'ring-2 ring-brand rounded-xl' : ''}>
+            <div key={i} data-playback-line={i} aria-current={i === all.playing ? 'true' : undefined} className={i === all.playing ? 'ring-2 ring-brand rounded-xl' : ''}>
               {section && <h3 className="font-semibold text-sm mb-1">{section}</h3>}
               <ChunkCard verse={v} speaker={speaker} onBeforeSpeak={all.stop} />
               {(v.chunks.length > 1 || v.chunks.some((c) => trapsFor(c).length > 0)) && (
@@ -229,7 +232,7 @@ function MasteryContent({ id, source, onSourceChange }: {
         </section>
       )}
 
-      {stage === 2 && <Shadowing lines={lines} shadow={shadow} />}
+      {stage === 2 && <Shadowing lines={lines} shadow={shadow} playingIndex={all.playing} />}
 
       {stage === 3 && (
         <section className="space-y-3">
@@ -298,7 +301,7 @@ function MasteryText({ verse }: { verse: Verse }) {
 
 const clock = (seconds: number) => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
 
-function Shadowing({ lines, shadow: s }: { lines: StudyLine[]; shadow: ShadowingController }) {
+function Shadowing({ lines, shadow: s, playingIndex }: { lines: StudyLine[]; shadow: ShadowingController; playingIndex: number }) {
   const busy = !!s.capture;
   return (
     <section className="space-y-3" aria-label="쉐도잉 연습">
@@ -318,7 +321,7 @@ function Shadowing({ lines, shadow: s }: { lines: StudyLine[]; shadow: Shadowing
         const playing = s.playback?.index === i ? s.playback : null;
         const clip = s.clips[i];
         return (
-          <div key={i} className={`rounded-xl border bg-white p-3 space-y-3 ${playing || capturing ? 'border-brand ring-1 ring-brand' : 'border-slate-200'}`} role="group" aria-label={`${i + 1}번 문장 연습`}>
+          <div key={i} data-playback-line={i} aria-current={i === playingIndex ? 'true' : undefined} className={`rounded-xl border bg-white p-3 space-y-3 ${playing || capturing || i === playingIndex ? 'border-brand ring-1 ring-brand' : 'border-slate-200'}`} role="group" aria-label={`${i + 1}번 문장 연습`}>
             {section && <h3 className="font-semibold text-sm">{section}</h3>}
             {speaker && <div className="text-xs text-slate-500">{speaker}</div>}
             <MasteryText verse={v} />

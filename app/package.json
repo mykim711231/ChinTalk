@@ -12,6 +12,7 @@
     "test:meaning": "tsx --test scripts/meaning-units.test.ts",
     "test:study": "tsx --test scripts/study-content.test.ts",
     "test:pwa": "npm run build && node scripts/pwa-updates.browser.cjs",
+    "test:follow": "npm run build && node scripts/playback-follow.browser.cjs",
     "build": "npm run build:content && tsc --noEmit && vite build",
     "preview": "vite preview"
   },

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { loadLesson, loadMeta } from '../lib/contentLoader';
 import { speak, speakAsync, stopSpeak } from '../lib/tts';
@@ -8,6 +8,7 @@ import { getMasteryResult, useProgressStore } from '../stores/useProgressStore';
 import { useOfflineStore } from '../stores/useOfflineStore';
 import Icon from '../components/Icon';
 import type { Lesson, LessonMeta } from '../types/lesson';
+import { usePlaybackFollow } from '../hooks/usePlaybackFollow';
 
 type Tab = 'text' | 'vocab' | 'grammar' | 'dialog' | 'trap';
 const TABS: [Tab, string][] = [
@@ -28,6 +29,8 @@ export default function LessonPage() {
   const [meta, setMeta] = useState<LessonMeta[]>([]);
   const [playing, setPlaying] = useState(-1);
   const token = useRef(0);
+  const follow = usePlaybackFollow(playing, `${lesson?.id ?? ''}:${tab}`);
+  const stopAll = useCallback(() => { token.current++; stopSpeak(); setPlaying(-1); }, []);
   const touch = useRef<{ x: number; y: number } | null>(null);
   const nav = useNavigate();
   const playableVerses = tab === 'text' ? lesson?.text ?? []
@@ -54,7 +57,7 @@ export default function LessonPage() {
 
   const playAll = async () => {
     if (!playableVerses.length) return;
-    if (playing >= 0) { token.current++; stopSpeak(); setPlaying(-1); return; }
+    if (playing >= 0) { stopAll(); return; }
     const my = ++token.current;
     for (let i = 0; i < playableVerses.length; i++) {
       if (token.current !== my) return;
@@ -68,9 +71,7 @@ export default function LessonPage() {
   };
   const selectTab = (nextTab: Tab) => {
     if (nextTab === tab) return;
-    token.current++;
-    stopSpeak();
-    setPlaying(-1);
+    stopAll();
     setTab(nextTab);
   };
   const idx = meta.findIndex((m) => m.id === id);
@@ -112,7 +113,7 @@ export default function LessonPage() {
   const masteryResult = getMasteryResult(progress, lesson.id, masterySource);
 
   return (
-    <main className="p-4 pb-24" onTouchStart={(e) => { touch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }; }} onTouchEnd={onTouchEnd}>
+    <main ref={follow.readingRef} className="p-4 pb-24" onTouchStart={(e) => { touch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }; }} onTouchEnd={onTouchEnd}>
       <Link to="/path" className="text-sm text-slate-500">
         ← 학습 경로
       </Link>
@@ -122,13 +123,14 @@ export default function LessonPage() {
       <div className="text-sm text-slate-600 mb-3">
         <span lang="zh-Latn-pinyin" className="reading-pinyin">{lesson.titlePinyin}</span> · {lesson.titleKo}
       </div>
-      <div className="flex flex-wrap gap-2 mb-3">
+      <div ref={follow.controlsRef} className={`flex flex-wrap items-center gap-2 mb-3 ${playing >= 0 ? 'playback-controls' : ''}`} aria-label="듣기 설정">
         <button type="button" disabled={!canDisplay || !playableVerses.length} onClick={() => nav(`/lesson/${lesson.id}/mastery?source=${masterySource}`)} title={!canDisplay ? '본문·회화 탭에서 사용할 수 있어요.' : undefined} className="inline-flex items-center gap-1.5 rounded-full bg-brand text-white text-sm font-semibold px-3 py-1 disabled:opacity-40 disabled:cursor-not-allowed">
           <Icon name="target" size={14} /> 4단계 마스터리{masteryResult ? ' (완료)' : ''}
         </button>
         <button type="button" disabled={!playableVerses.length} onClick={() => void playAll()} className="inline-flex items-center gap-1.5 rounded-full border border-brand text-brand text-sm font-semibold px-3 py-1 disabled:opacity-40 disabled:cursor-not-allowed">
           <Icon name={playing >= 0 ? 'stop' : 'play'} size={14} /> {playing >= 0 ? '멈추기' : tab === 'text' ? '본문 전체 듣기' : tab === 'dialog' ? '회화 전체 듣기' : '전체 듣기'}
         </button>
+        {playing >= 0 && <span role="status" className="text-xs text-slate-500">재생 중 {playing + 1}/{playableVerses.length}문장</span>}
       </div>
       <div className="flex gap-1 overflow-x-auto mb-3 border-b border-slate-200">
         {TABS.map(([k, label]) => (
@@ -159,7 +161,7 @@ export default function LessonPage() {
       </div>
 
       {tab === 'text' && lesson.text.map((v, i) => (
-        <div key={i} className={i === playing ? 'ring-2 ring-brand rounded-xl' : ''}><ChunkCard verse={v} /></div>
+        <div key={i} data-playback-line={i} aria-current={i === playing ? 'true' : undefined} className={i === playing ? 'ring-2 ring-brand rounded-xl' : ''}><ChunkCard verse={v} onBeforeSpeak={stopAll} /></div>
       ))}
 
       {tab === 'vocab' && (
@@ -222,8 +224,8 @@ export default function LessonPage() {
           <div key={i}>
             <h3 className="font-semibold text-sm mb-1">{d.title}</h3>
             {d.turns.map((t, j) => (
-              <div key={j} className={lesson.dialogs.slice(0, i).reduce((n, section) => n + section.turns.length, 0) + j === playing ? 'ring-2 ring-brand rounded-xl' : ''}>
-                <ChunkCard verse={t.verse} speaker={t.speaker} />
+              <div key={j} data-playback-line={lesson.dialogs.slice(0, i).reduce((n, section) => n + section.turns.length, 0) + j} aria-current={lesson.dialogs.slice(0, i).reduce((n, section) => n + section.turns.length, 0) + j === playing ? 'true' : undefined} className={lesson.dialogs.slice(0, i).reduce((n, section) => n + section.turns.length, 0) + j === playing ? 'ring-2 ring-brand rounded-xl' : ''}>
+                <ChunkCard verse={t.verse} speaker={t.speaker} onBeforeSpeak={stopAll} />
               </div>
             ))}
           </div>

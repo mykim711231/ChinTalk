@@ -11,6 +11,7 @@ body { @apply bg-paper text-slate-900 antialiased; padding-bottom: calc(64px + e
 @layer components {
   .reading-zh { @apply font-hanzi text-xl sm:text-2xl font-medium leading-snug; overflow-wrap: anywhere; }
   .reading-pinyin { @apply font-pinyin text-base sm:text-lg leading-snug text-slate-600; overflow-wrap: anywhere; }
+  .playback-controls { @apply sticky z-20 rounded-xl bg-paper/95 py-2 shadow-sm backdrop-blur; }
 }
 
 /* 각 음절이 차지하는 폭을 확보해 큰 병음과 성조가 옆 글자에 겹치지 않게 한다. */
