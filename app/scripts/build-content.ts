@@ -215,6 +215,8 @@ const meta: LessonMeta[] = [];
 // 단어장: 각 과 '단어' 섹션 + 관련 어휘 행에서 만든다 (외부 사전 미사용 → 라이선스 이슈 없음)
 type DictEntry = { p: string; pos?: string; ko: string; h?: string; ex?: [string, string, string]; l: string };
 const dict: Record<string, DictEntry> = {};
+// 문장 단어의 한국어 뜻 보강 (Doc/Dictionary/ko-meanings.json)
+const koMeanings: Record<string, string> = JSON.parse(readFileSync(join(ROOT, 'Doc', 'Dictionary', 'ko-meanings.json'), 'utf8'));
 for (let vol = 1; vol <= 8; vol++) {
   const dir = join(SRC, `vol${vol}`);
   const files = readdirSync(dir).filter(f => f.endsWith('.md')).sort();
@@ -229,11 +231,11 @@ for (let vol = 1; vol <= 8; vol++) {
   for (const l of lessons) for (const g of l.related) for (const r of g.rows) {
     if (r.zh && r.zh.length <= 8 && !dict[r.zh]) dict[r.zh] = { p: r.pinyin, ko: r.ko, l: l.id };
   }
-  // 문장(본문·회화)에 등장하는 단어도 사전에 추가(병음만, 뜻은 추후 CC-CEDICT로 보강)
+  // 문장(본문·회화)에 등장하는 단어도 사전에 추가 (ko-meanings.json의 뜻 보강)
   for (const l of lessons) {
     const verses = [...l.text, ...l.dialogs.flatMap(d => d.turns.map(t => t.verse))];
     for (const v of verses) for (const w of extractWords(v.zh, v.pinyin)) {
-      if (!dict[w.zh]) dict[w.zh] = { p: w.py, ko: '', l: l.id };
+      if (!dict[w.zh]) dict[w.zh] = { p: w.py, ko: koMeanings[w.zh] ?? '', l: l.id };
     }
   }
   for (const l of lessons) meta.push({ id: l.id, vol: l.vol, no: l.no, level: l.level, titleZh: l.titleZh, titlePinyin: l.titlePinyin, titleKo: l.titleKo });
