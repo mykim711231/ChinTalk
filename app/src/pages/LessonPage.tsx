@@ -10,7 +10,7 @@ import type { Lesson, LessonMeta, Verse } from '../types/lesson';
 import { usePlaybackFollow } from '../hooks/usePlaybackFollow';
 import { isBasicMode } from '../lib/compatibility';
 import { useLessonPlayback } from '../hooks/useLessonPlayback';
-import { LISTENING_PASSES, VOCAB_PASSES } from '../lib/learningListening';
+import { GUIDE_TEXT, LISTENING_PASSES, PASS_COUNT, VOCAB_PASSES } from '../lib/learningListening';
 
 type Tab = 'text' | 'vocab' | 'grammar' | 'dialog' | 'trap';
 const TABS: [Tab, string][] = [
@@ -122,12 +122,12 @@ export default function LessonPage() {
           <Icon name={ordinary ? 'stop' : 'play'} size={14} /> {ordinary ? '멈추기' : tab === 'text' ? '본문 전체 듣기' : tab === 'dialog' ? '회화 전체 듣기' : tab === 'vocab' ? '단어 전체 듣기' : '전체 듣기'}
         </button>
         <button type="button" disabled={!playableVerses.length} aria-pressed={learning} aria-describedby="learning-listening-guide" onClick={() => { if (learning) stopAll(); else void playback.play('learning'); }} className="inline-flex items-center gap-1.5 rounded-full border border-brand text-brand text-sm font-semibold px-3 py-1 disabled:opacity-40 disabled:cursor-not-allowed">
-          <Icon name={learning ? 'stop' : 'repeat'} size={14} /> {learning ? '학습 듣기 멈추기' : tab === 'text' ? '본문 4회 학습 듣기' : tab === 'dialog' ? '회화 4회 학습 듣기' : tab === 'vocab' ? '단어 4회 학습 듣기' : '4회 학습 듣기'}
+          <Icon name={learning ? 'stop' : 'repeat'} size={14} /> {learning ? '학습 듣기 멈추기' : tab === 'text' ? '본문 5회 학습 듣기' : tab === 'dialog' ? '회화 5회 학습 듣기' : tab === 'vocab' ? '단어 5회 학습 듣기' : '5회 학습 듣기'}
         </button>
-        {playing >= 0 && <span role="status" className="text-xs text-slate-500">{learning ? `${pass + 1}/4회 · ${playback.passLabel} · ` : '재생 중 '}{playing + 1}/{playableVerses.length}{tab === 'vocab' ? '단어' : '문장'}</span>}
+        {playing >= 0 && <span role="status" className="text-xs text-slate-500">{learning ? `${pass + 1}/${PASS_COUNT}회 · ${playback.passLabel} · ` : '재생 중 '}{playing + 1}/{playableVerses.length}{tab === 'vocab' ? '단어' : '문장'}</span>}
       </div>
-      {playback.completed && <p role="status" className="text-sm text-brand mb-2">4회 학습 듣기를 마쳤어요. 기존 표시 설정으로 돌아왔어요.</p>}
-      <p id="learning-listening-guide" className="text-xs text-slate-500 mb-3">{tab === 'vocab' ? '4회 학습 듣기: 모두 표시 → 한자·병음 → 병음만 → 한글만(한글을 보고 뜻을 떠올린 뒤 음성 확인). 매회 단어 전체를 듣고,' : '4회 학습 듣기: 병음만 → 한글만 → 한자만 → 모두 표시. 매회 선택한 내용 전체를 듣고,'} 종료하면 기존 표시 설정으로 돌아와요.</p>
+      {playback.completed && <p role="status" className="text-sm text-brand mb-2">{PASS_COUNT}회 학습 듣기를 마쳤어요. 기존 표시 설정으로 돌아왔어요.</p>}
+      <p id="learning-listening-guide" className="text-xs text-slate-500 mb-3">{GUIDE_TEXT} 매회 {tab === 'vocab' ? '단어' : '선택한 내용'} 전체를 듣고, 종료하면 기존 표시 설정으로 돌아와요.</p>
       <div className="flex gap-1 overflow-x-auto mb-3 border-b border-slate-200">
         {TABS.map(([k, label]) => (
           <button
@@ -164,7 +164,7 @@ export default function LessonPage() {
         <>
           {lesson.vocab.map((w, i) => {
             const vz = !display || display.showZh, vp = !display || display.showPinyin, vk = !display || display.showKo;
-            const full = !display || (display.showZh && display.showPinyin && display.showKo); // 4회 학습 앞 3회는 한 가지만 보임
+            const full = !display || (display.showZh && display.showPinyin && display.showKo); // 학습 듣기 2~5회는 한 가지만 보임
             return (
             <div key={i} data-playback-line={i} aria-current={i === playing ? 'true' : undefined} className={`border border-slate-200 rounded-xl p-3 mb-2 ${i === playing ? 'ring-2 ring-brand' : ''}`}>
               <button onClick={() => { stopAll(); void speak(w.zh); }} aria-label={`${w.zh} 듣기`} className="mr-2 inline-flex items-center gap-1">
