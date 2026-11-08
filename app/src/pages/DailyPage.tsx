@@ -84,12 +84,14 @@ export default function DailyPage() {
         const i = cursor.current % lines.length;
         setVIdx(i);
         const verse = lines[i].verse;
+        const startedAt = Date.now();
         await speakAsync(verse.zh);
+        const spent = Date.now() - startedAt; // 재생에 걸린 시간 = 문장 길이·재생 속도 반영
         if (!alive) break;
         if (useOfflineStore.getState().playbackError) { setState('paused'); break; }
         if (stepRef.current !== 4) { await new Promise((r) => setTimeout(r, 250)); if (alive) await speakKoIfOn(verse.ko); }
         if (!alive) break;
-        await new Promise((r) => setTimeout(r, stepRef.current === 4 ? 2200 / Math.min(speed, 4) : 600));
+        await new Promise((r) => setTimeout(r, stepRef.current === 4 ? Math.min(8000, Math.max(1500, spent + 500)) / Math.min(speed, 4) : 600)); // 쉐도잉: 방금 들은 만큼 쉬며 따라 말하기
         if (!alive) break;
         cursor.current = (i + 1) % lines.length;
       }
