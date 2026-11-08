@@ -61,6 +61,9 @@ export default function InstallModal() {
             <li><b>홈 화면에 추가</b>를 선택하세요.</li>
           </ol>
         )}
+        {evt && /SamsungBrowser/i.test(navigator.userAgent) && (
+          <p className="mt-2 text-xs text-amber-800">삼성 인터넷에서는 “안전하지 않은 앱 차단됨” 경고가 날 수 있어요. <b>무시하고 설치하기</b>를 누르거나 Chrome에서 설치하세요.</p>
+        )}
         {evt && /Android/i.test(navigator.userAgent) && (
           <a href={`${import.meta.env.BASE_URL}browser.html#/`} className="mt-3 block text-center text-sm font-semibold text-brand underline">설치한 앱이 바로 닫히면 Chrome 바로가기 사용</a>
         )}

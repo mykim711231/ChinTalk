@@ -132,7 +132,7 @@ const GUIDES: Item[] = [
   {
     id: 'install', icon: 'download', title: '앱으로 설치하기',
     subtitle: '전권 자료 자동 저장 후 홈 화면에 추가해 사용해요.',
-    keywords: '설치 홈 화면 추가 pwa iphone android windows mac safari chrome edge 오프라인',
+    keywords: '설치 홈 화면 추가 삼성 인터넷 삼성인터넷 Play 프로텍트 안전하지 않은 앱 차단 경고 pwa iphone android windows mac safari chrome edge 오프라인',
     body: (
       <ul className="space-y-2">
         <li>첫 접속 때 <b>전권 교재·단어장·음원 목록</b>을 자동 저장해요. <b>녹음 음성</b>을 선택하고 자동 저장을 켰을 때만 녹음 음원을 자동으로 이어서 저장해요. 기기 음성에서는 받지 않아요.</li>
@@ -140,6 +140,7 @@ const GUIDES: Item[] = [
         <li>홈 화면 아이콘 추가는 브라우저의 <b>설치</b> 또는 <b>추가</b> 버튼을 직접 눌러야 해요.</li>
         <li><b>Android (Chrome)</b> — 메뉴(⋮) → <b>홈 화면에 추가</b> 또는 <b>앱 설치</b></li>
         <li><b>설치한 앱이 바로 닫히거나 Android 8·9 기기라면</b> — 아래 <b>구형 Android·Chrome 기기에서 사용하기</b> 항목의 Chrome 바로가기 방법을 확인하세요.</li>
+        <li><b>삼성 인터넷으로 설치하면</b> “안전하지 않은 앱 차단됨” 경고가 날 수 있어요. 앱 문제가 아니라 삼성 인터넷이 만드는 설치 껍데기의 대상 Android 버전 때문이에요. <b>무시하고 설치하기</b>를 누르거나, 기존 아이콘을 지우고 <b>Chrome</b>에서 다시 설치하세요.</li>
         <li><b>iPhone / iPad (Safari)</b> — 공유(↑) → <b>홈 화면에 추가</b></li>
         <li><b>PC (Chrome·Edge)</b> — 주소창 오른쪽의 <b>설치(⊕)</b> 아이콘</li>
         <li className="text-xs text-slate-500">카카오톡 등 인앱 브라우저에서는 설치가 안 됩니다. 주소를 복사해 Chrome/Safari에서 여세요.</li>
