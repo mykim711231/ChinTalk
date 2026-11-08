@@ -10,6 +10,7 @@ import type { Lesson, LessonMeta, Verse } from '../types/lesson';
 import { usePlaybackFollow } from '../hooks/usePlaybackFollow';
 import { isBasicMode } from '../lib/compatibility';
 import { useLessonPlayback } from '../hooks/useLessonPlayback';
+import { LISTENING_PASSES, VOCAB_PASSES } from '../lib/learningListening';
 
 type Tab = 'text' | 'vocab' | 'grammar' | 'dialog' | 'trap';
 const TABS: [Tab, string][] = [
@@ -36,7 +37,7 @@ export default function LessonPage() {
     : tab === 'dialog' ? lesson?.dialogs.flatMap((d) => d.turns.map((t) => t.verse)) ?? []
     : tab === 'vocab' ? (lesson?.vocab ?? []).map((w): Verse => ({ zh: w.zh, pinyin: w.pinyin, ko: w.ko, chunks: [] }))
     : [];
-  const playback = useLessonPlayback(playableVerses, `${id}:${tab}`);
+  const playback = useLessonPlayback(playableVerses, `${id}:${tab}`, tab === 'vocab' ? VOCAB_PASSES : LISTENING_PASSES);
   const { playing, pass, display, stop: stopAll } = playback;
   const { showZh, showPinyin, showKo } = display ?? settings;
   const learning = pass !== null;
@@ -126,7 +127,7 @@ export default function LessonPage() {
         {playing >= 0 && <span role="status" className="text-xs text-slate-500">{learning ? `${pass + 1}/4회 · ${playback.passLabel} · ` : '재생 중 '}{playing + 1}/{playableVerses.length}{tab === 'vocab' ? '단어' : '문장'}</span>}
       </div>
       {playback.completed && <p role="status" className="text-sm text-brand mb-2">4회 학습 듣기를 마쳤어요. 기존 표시 설정으로 돌아왔어요.</p>}
-      <p id="learning-listening-guide" className="text-xs text-slate-500 mb-3">4회 학습 듣기: 병음만 → 한글만 → 한자만 → 모두 표시. 매회 선택한 내용 전체를 듣고, 종료하면 기존 표시 설정으로 돌아와요.</p>
+      <p id="learning-listening-guide" className="text-xs text-slate-500 mb-3">{tab === 'vocab' ? '4회 학습 듣기: 모두 표시 → 한자·병음 → 병음만 → 한글만(한글을 보고 뜻을 떠올린 뒤 음성 확인). 매회 단어 전체를 듣고,' : '4회 학습 듣기: 병음만 → 한글만 → 한자만 → 모두 표시. 매회 선택한 내용 전체를 듣고,'} 종료하면 기존 표시 설정으로 돌아와요.</p>
       <div className="flex gap-1 overflow-x-auto mb-3 border-b border-slate-200">
         {TABS.map(([k, label]) => (
           <button

@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { speakAsync, stopSpeak } from '../lib/tts';
-import { LISTENING_PASSES } from '../lib/learningListening';
+import { LISTENING_PASSES, type ListeningPass } from '../lib/learningListening';
 import { useOfflineStore } from '../stores/useOfflineStore';
 import type { Verse } from '../types/lesson';
 
 /** 표시 전환은 학습 화면 안에서만 적용하고 저장된 표시 설정은 바꾸지 않는다. */
-export function useLessonPlayback(verses: Verse[], scope: string) {
+export function useLessonPlayback(verses: Verse[], scope: string, passes: ListeningPass[] = LISTENING_PASSES) {
   const [current, setCurrent] = useState<{ index: number; pass: number | null } | null>(null);
   const [completed, setCompleted] = useState(false);
   const token = useRef(0);
@@ -27,12 +27,14 @@ export function useLessonPlayback(verses: Verse[], scope: string) {
     const my = ++token.current;
     stopSpeak();
     setCompleted(false);
-    const rounds = mode === 'learning' ? LISTENING_PASSES.length : 1;
+    const rounds = mode === 'learning' ? passes.length : 1;
     try {
       for (let pass = 0; pass < rounds; pass++) {
         for (let index = 0; index < verses.length; index++) {
           if (token.current !== my) return;
           setCurrent({ index, pass: mode === 'learning' ? pass : null });
+          const lead = mode === 'learning' ? passes[pass].leadMs ?? 0 : 0;
+          if (lead) { await new Promise((resolve) => setTimeout(resolve, lead)); if (token.current !== my) return; }
           await speakAsync(verses[index].zh);
           if (token.current !== my || useOfflineStore.getState().playbackError) return;
           if (index < verses.length - 1 || pass < rounds - 1) {
@@ -52,8 +54,8 @@ export function useLessonPlayback(verses: Verse[], scope: string) {
   return {
     playing: current?.index ?? -1,
     pass,
-    display: pass === null ? undefined : LISTENING_PASSES[pass].display,
-    passLabel: pass === null ? null : LISTENING_PASSES[pass].label,
+    display: pass === null ? undefined : passes[pass].display,
+    passLabel: pass === null ? null : passes[pass].label,
     completed,
     play,
     stop,

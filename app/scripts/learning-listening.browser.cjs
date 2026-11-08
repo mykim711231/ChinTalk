@@ -8,9 +8,12 @@ const body = lessons.flatMap(l => l.text).slice(0, 3);
 const dialog = lessons.flatMap(l => l.dialogs.flatMap(d => d.turns.map(t => t.verse))).slice(0, 3);
 lessons[1].text = body;
 lessons[1].dialogs = [{ title: '회화 1', turns: dialog.slice(0, 2).map(verse => ({ speaker: 'A', verse })) }, { title: '회화 2', turns: dialog.slice(2).map(verse => ({ speaker: 'B', verse })) }];
+const vocab = lessons[1].vocab.filter((w) => w.exZh).slice(0, 3);
+lessons[1].vocab = vocab;
 lessons[2].text = []; lessons[2].dialogs = [];
 const base = 'http://chintalk.test/ChinTalk/';
 const mime = { '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.html': 'text/html', '.svg': 'image/svg+xml', '.png': 'image/png' };
+const vocabPasses = [['모두 표시', true, true, true], ['한자·병음 (뜻 숨김)', true, true, false], ['병음만', false, true, false], ['한글만 (떠올린 뒤 확인)', false, false, true]];
 const passes = [['병음만', false, true, false], ['한글만', false, false, true], ['한자만', true, false, false], ['모두 표시', true, true, true]];
 
 async function main() {
@@ -35,7 +38,8 @@ async function main() {
         } }));
         window.__spoken = []; window.__voices = [{ lang: 'zh-CN', name: '本机', voiceURI: 'local', localService: true }];
         const timeout = window.setTimeout.bind(window);
-        window.setTimeout = (fn, ms, ...args) => timeout(fn, ms === 1000 ? 10 : ms, ...args);
+        window.__leads = 0;
+        window.setTimeout = (fn, ms, ...args) => { if (ms === 1500) window.__leads++; return timeout(fn, ms === 1000 || ms === 1500 ? 10 : ms, ...args); };
         window.SpeechSynthesisUtterance = class { constructor(text) { this.text = text; } };
         const events = new EventTarget();
         Object.defineProperty(window, 'speechSynthesis', { value: {
@@ -84,7 +88,29 @@ async function main() {
         assert.deepEqual(await page.evaluate(() => window.__spoken), Array.from({ length: 4 }, () => verses.map(v => v.zh)).flat());
         await restored();
       };
+      const runVocab = async () => {
+        await page.getByRole('button', { name: '단어', exact: true }).click();
+        await page.evaluate(() => { window.__spoken = []; window.__leads = 0; });
+        await page.getByRole('button', { name: '단어 4회 학습 듣기', exact: true }).click();
+        for (let pass = 0; pass < 4; pass++) for (let i = 0; i < vocab.length; i++) {
+          await page.waitForFunction(n => window.__spoken.length === n, pass * vocab.length + i + 1);
+          await page.getByRole('status').filter({ hasText: `${pass + 1}/4회 · ${vocabPasses[pass][0]} · ${i + 1}/${vocab.length}단어` }).waitFor();
+          const card = current(); const [, zh, py, ko] = vocabPasses[pass];
+          assert.equal(await card.getAttribute('data-playback-line'), String(i));
+          assert.equal(await card.locator('.reading-zh').count(), zh ? 1 : 0);
+          assert.equal(await card.locator('.reading-pinyin').count() > 0, py);
+          assert.equal(await card.getByText(vocab[i].ko, { exact: true }).count(), ko ? 1 : 0);
+          assert.equal(await card.getByText(vocab[i].exZh, { exact: true }).count(), pass === 0 ? 1 : 0);
+          await page.evaluate(() => window.__utterance.onend?.());
+        }
+        await page.getByText('4회 학습 듣기를 마쳤어요. 기존 표시 설정으로 돌아왔어요.', { exact: true }).waitFor();
+        assert.deepEqual(await page.evaluate(() => window.__spoken), Array.from({ length: 4 }, () => vocab.map(v => v.zh)).flat());
+        assert.equal(await page.evaluate(() => window.__leads), vocab.length); // 한글만 회차에만 재생 전 대기
+        assert.equal(await current().count(), 0); // 단어 탭은 표시 칩이 비활성이라 설정 저장값만 확인
+        assert.equal(await page.evaluate(() => localStorage.getItem('chintalk-settings')), settings);
+      };
       await run('본문', body);
+      await runVocab();
       await context.setOffline(true);
       await run('회화', dialog);
       await context.setOffline(false);
