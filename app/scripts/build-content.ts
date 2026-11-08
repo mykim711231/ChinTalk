@@ -213,10 +213,12 @@ function parseLesson(vol: number, file: string, text: string): Lesson {
 
 const meta: LessonMeta[] = [];
 // 단어장: 각 과 '단어' 섹션 + 관련 어휘 행에서 만든다 (외부 사전 미사용 → 라이선스 이슈 없음)
-type DictEntry = { p: string; pos?: string; ko: string; h?: string; ex?: [string, string, string]; l: string };
+type DictEntry = { p: string; pos?: string; ko: string; h?: string; ex?: [string, string, string]; l: string; senses?: string[] };
 const dict: Record<string, DictEntry> = {};
 // 문장 단어의 한국어 뜻 보강 (Doc/Dictionary/ko-meanings.json)
 const koMeanings: Record<string, string> = JSON.parse(readFileSync(join(ROOT, 'Doc', 'Dictionary', 'ko-meanings.json'), 'utf8'));
+// 흔한 다의어의 다중 뜻 (Doc/Dictionary/senses.json)
+const sensesData: Record<string, string[]> = JSON.parse(readFileSync(join(ROOT, 'Doc', 'Dictionary', 'senses.json'), 'utf8'));
 for (let vol = 1; vol <= 8; vol++) {
   const dir = join(SRC, `vol${vol}`);
   const files = readdirSync(dir).filter(f => f.endsWith('.md')).sort();
@@ -240,6 +242,10 @@ for (let vol = 1; vol <= 8; vol++) {
   }
   for (const l of lessons) meta.push({ id: l.id, vol: l.vol, no: l.no, level: l.level, titleZh: l.titleZh, titlePinyin: l.titlePinyin, titleKo: l.titleKo });
   console.log(`vol${vol}: ${lessons.length} lessons`);
+}
+// 다의어 senses 병합
+for (const [w, senses] of Object.entries(sensesData)) {
+  if (dict[w]) dict[w].senses = senses;
 }
 writeFileSync(join(OUT, 'word-dict.json'), JSON.stringify(dict));
 console.log(`dict: ${Object.keys(dict).length}`);

@@ -39,7 +39,9 @@ export default function WordSheet() {
         </div>
         {hits === null && <p className="text-sm text-slate-500">찾는 중…</p>}
         {hits?.length === 0 && <p className="text-sm text-slate-500">이 글자가 들어간 단어가 단어장에 아직 없어요.</p>}
-        {hits?.map(({ word, entry }) => (
+        {hits?.map(({ word, entry }) => {
+          const meanings = entry.senses?.length ? entry.senses : (entry.ko ? [entry.ko] : []);
+          return (
           <div key={word} className="rounded-xl border border-slate-200 p-3">
             <div className="flex flex-wrap items-center gap-2">
               <button type="button" aria-label={`${word} 듣기`} onClick={() => speak(word)} className="w-8 h-8 rounded-full border border-slate-300 flex items-center justify-center">
@@ -49,7 +51,21 @@ export default function WordSheet() {
               <span lang="zh-Latn-pinyin" className="reading-pinyin">{entry.p}</span>
               {entry.pos && <span className="text-xs text-slate-500">· {entry.pos}</span>}
             </div>
-            <p className="mt-1 text-sm text-slate-800">{entry.ko || '뜻 준비 중이에요 — 병음으로 발음을 확인해 보세요.'}</p>
+            {meanings.length ? (
+              <>
+                <p className="mt-1 text-sm text-slate-800 font-medium">{meanings[0]}</p>
+                {meanings.length > 1 && (
+                  <details className="mt-1">
+                    <summary className="text-xs text-slate-500 cursor-pointer select-none">+ 다른 뜻 {meanings.length - 1}개</summary>
+                    <ol className="mt-1 space-y-0.5 text-sm text-slate-700 list-decimal list-inside">
+                      {meanings.slice(1).map((m, i) => <li key={i}>{m}</li>)}
+                    </ol>
+                  </details>
+                )}
+              </>
+            ) : (
+              <p className="mt-1 text-sm text-slate-500">뜻 준비 중이에요 — 병음으로 발음을 확인해 보세요.</p>
+            )}
             {entry.h && <p className="mt-1 text-xs text-slate-500">{entry.h}</p>}
             {entry.ex && (
               <p className="mt-1 text-xs text-slate-600">
@@ -58,7 +74,8 @@ export default function WordSheet() {
             )}
             <Link to={`/lesson/${entry.l}`} onClick={close} className="mt-1 inline-block text-xs text-brand underline">{entry.l} 과에서 보기</Link>
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

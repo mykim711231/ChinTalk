@@ -1,5 +1,5 @@
 // 단어장(word-dict.json): 교재 '단어'·'관련 어휘'에서 생성. 글자를 탭하면 그 글자를 포함한 가장 긴 단어를 찾는다.
-export type DictEntry = { p: string; pos?: string; ko: string; h?: string; ex?: [string, string, string]; l: string };
+export type DictEntry = { p: string; pos?: string; ko: string; h?: string; ex?: [string, string, string]; l: string; senses?: string[] };
 const B = import.meta.env.BASE_URL;
 let dictP: Promise<Record<string, DictEntry>> | null = null;
 export const loadDict = (): Promise<Record<string, DictEntry>> =>
