@@ -22,7 +22,7 @@ export function useLessonPlayback(verses: Verse[], scope: string, passes: Listen
     return () => { token.current++; stopSpeak(); };
   }, [scope]);
 
-  const play = async (mode: 'once' | 'learning') => {
+  const play = async (mode: 'once' | 'learning', opts: { withKo?: boolean } = {}) => {
     if (!verses.length) return;
     const my = ++token.current;
     stopSpeak();
@@ -37,6 +37,13 @@ export function useLessonPlayback(verses: Verse[], scope: string, passes: Listen
           if (lead) { await new Promise((resolve) => setTimeout(resolve, lead)); if (token.current !== my) return; }
           await speakAsync(verses[index].zh);
           if (token.current !== my || useOfflineStore.getState().playbackError) return;
+          // 한글 해설: 음원이 없으면 한국어 기기 음성으로 읽는다. 괄호 보충설명은 읽지 않는다.
+          if (opts.withKo && mode === 'once' && verses[index].ko) {
+            await new Promise((resolve) => setTimeout(resolve, 300));
+            if (token.current !== my) return;
+            await speakAsync(verses[index].ko, 1, 'ko');
+            if (token.current !== my || useOfflineStore.getState().playbackError) return;
+          }
           if (index < verses.length - 1 || pass < rounds - 1) {
             await new Promise((resolve) => setTimeout(resolve, 1000));
           }

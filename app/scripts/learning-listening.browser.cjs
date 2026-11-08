@@ -112,6 +112,29 @@ async function main() {
       };
       await run('본문', body);
       await runVocab();
+      // 문법·발음 함정: 가림 단계 없이 전체 듣기만 제공하고, 한글 해설은 줄마다 한 번 더 읽는다.
+      const runReadOnly = async (tab, once, withKo) => {
+        await page.getByRole('button', { name: tab, exact: true }).click();
+        assert.equal(await page.getByRole('button', { name: /5회 학습 듣기/ }).count(), 0);
+        const n = await page.locator('[data-playback-line]').count();
+        assert.ok(n > 0, tab + ' 읽을 줄이 있어야 한다');
+        await page.evaluate(() => { window.__spoken = []; });
+        await page.getByRole('button', { name: once, exact: true }).click();
+        for (let i = 0; i < n; i++) {
+          await page.waitForFunction(k => window.__spoken.length === k, withKo ? i * 2 + 1 : i + 1);
+          assert.equal(await current().getAttribute('data-playback-line'), String(i));
+          await page.evaluate(() => window.__utterance.onend?.());
+          if (withKo) { await page.waitForFunction(k => window.__spoken.length === k, i * 2 + 2); await page.evaluate(() => window.__utterance.onend?.()); }
+        }
+        await page.waitForFunction(() => !document.querySelector('[data-playback-line][aria-current=true]'));
+        const spoken = await page.evaluate(() => window.__spoken);
+        assert.equal(spoken.length, withKo ? n * 2 : n);
+        assert.ok(spoken.filter((_, i) => !withKo || i % 2 === 0).every(t => /[一-鿿]/.test(t)));
+      };
+      await runReadOnly('문법', '문법 전체 듣기', false);
+      await runReadOnly('문법', '문법 + 한글 해설 듣기', true);
+      await runReadOnly('발음 함정', '함정 전체 듣기', false);
+      await runReadOnly('발음 함정', '함정 + 한글 해설 듣기', true);
       await context.setOffline(true);
       await run('회화', dialog);
       await context.setOffline(false);

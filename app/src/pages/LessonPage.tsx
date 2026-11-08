@@ -10,6 +10,7 @@ import type { Lesson, LessonMeta, Verse } from '../types/lesson';
 import { usePlaybackFollow } from '../hooks/usePlaybackFollow';
 import { isBasicMode } from '../lib/compatibility';
 import { useLessonPlayback } from '../hooks/useLessonPlayback';
+import { grammarItems, trapItems } from '../lib/readAloud';
 import { GUIDE_TEXT, LISTENING_PASSES, PASS_COUNT, VOCAB_PASSES } from '../lib/learningListening';
 
 type Tab = 'text' | 'vocab' | 'grammar' | 'dialog' | 'trap';
@@ -33,10 +34,13 @@ export default function LessonPage() {
   const [meta, setMeta] = useState<LessonMeta[]>([]);
   const touch = useRef<{ x: number; y: number } | null>(null);
   const nav = useNavigate();
+  const readItems = tab === 'grammar' ? grammarItems(lesson) : tab === 'trap' ? trapItems(lesson) : [];
+  const readOnly = tab === 'grammar' || tab === 'trap'; // 가림 단계가 없는 탭: 전체 듣기만 제공
+  const [koMode, setKoMode] = useState(false);
   const playableVerses = tab === 'text' ? lesson?.text ?? []
     : tab === 'dialog' ? lesson?.dialogs.flatMap((d) => d.turns.map((t) => t.verse)) ?? []
     : tab === 'vocab' ? (lesson?.vocab ?? []).map((w): Verse => ({ zh: w.zh, pinyin: w.pinyin, ko: w.ko, chunks: [] }))
-    : [];
+    : readItems.map((r) => r.verse);
   const playback = useLessonPlayback(playableVerses, `${id}:${tab}`, tab === 'vocab' ? VOCAB_PASSES : LISTENING_PASSES);
   const { playing, pass, display, stop: stopAll } = playback;
   const { showZh, showPinyin, showKo } = display ?? settings;
@@ -118,16 +122,23 @@ export default function LessonPage() {
         {!basic && <button type="button" disabled={!canDisplay || !playableVerses.length} onClick={() => nav(`/lesson/${lesson.id}/mastery?source=${masterySource}`)} title={!canDisplay ? '본문·회화 탭에서 사용할 수 있어요.' : undefined} className="inline-flex items-center gap-1.5 rounded-full bg-brand text-white text-sm font-semibold px-3 py-1 disabled:opacity-40 disabled:cursor-not-allowed">
           <Icon name="target" size={14} /> 4단계 마스터리{masteryResult ? ' (완료)' : ''}
         </button>}
-        <button type="button" disabled={!playableVerses.length} onClick={() => { if (ordinary) stopAll(); else void playback.play('once'); }} className="inline-flex items-center gap-1.5 rounded-full border border-brand text-brand text-sm font-semibold px-3 py-1 disabled:opacity-40 disabled:cursor-not-allowed">
-          <Icon name={ordinary ? 'stop' : 'play'} size={14} /> {ordinary ? '멈추기' : tab === 'text' ? '본문 전체 듣기' : tab === 'dialog' ? '회화 전체 듣기' : tab === 'vocab' ? '단어 전체 듣기' : '전체 듣기'}
+        <button type="button" disabled={!playableVerses.length} onClick={() => { if (ordinary) stopAll(); else { setKoMode(false); void playback.play('once'); } }} className="inline-flex items-center gap-1.5 rounded-full border border-brand text-brand text-sm font-semibold px-3 py-1 disabled:opacity-40 disabled:cursor-not-allowed">
+          <Icon name={ordinary ? 'stop' : 'play'} size={14} /> {ordinary ? (koMode ? '듣기 멈추기' : '멈추기') : tab === 'grammar' ? '문법 전체 듣기' : tab === 'trap' ? '함정 전체 듣기' : tab === 'text' ? '본문 전체 듣기' : tab === 'dialog' ? '회화 전체 듣기' : tab === 'vocab' ? '단어 전체 듣기' : '전체 듣기'}
         </button>
-        <button type="button" disabled={!playableVerses.length} aria-pressed={learning} aria-describedby="learning-listening-guide" onClick={() => { if (learning) stopAll(); else void playback.play('learning'); }} className="inline-flex items-center gap-1.5 rounded-full border border-brand text-brand text-sm font-semibold px-3 py-1 disabled:opacity-40 disabled:cursor-not-allowed">
+        {readOnly && (
+          <button type="button" disabled={!playableVerses.length || (ordinary && !koMode)} aria-pressed={ordinary && koMode} onClick={() => { if (ordinary) stopAll(); else { setKoMode(true); void playback.play('once', { withKo: true }); } }} className="inline-flex items-center gap-1.5 rounded-full border border-brand text-brand text-sm font-semibold px-3 py-1 disabled:opacity-40 disabled:cursor-not-allowed">
+            <Icon name={ordinary && koMode ? 'stop' : 'play'} size={14} /> {ordinary && koMode ? '해설 듣기 멈추기' : tab === 'grammar' ? '문법 + 한글 해설 듣기' : '함정 + 한글 해설 듣기'}
+          </button>
+        )}
+        {!readOnly && <button type="button" disabled={!playableVerses.length} aria-pressed={learning} aria-describedby="learning-listening-guide" onClick={() => { if (learning) stopAll(); else void playback.play('learning'); }} className="inline-flex items-center gap-1.5 rounded-full border border-brand text-brand text-sm font-semibold px-3 py-1 disabled:opacity-40 disabled:cursor-not-allowed">
           <Icon name={learning ? 'stop' : 'repeat'} size={14} /> {learning ? '학습 듣기 멈추기' : tab === 'text' ? '본문 5회 학습 듣기' : tab === 'dialog' ? '회화 5회 학습 듣기' : tab === 'vocab' ? '단어 5회 학습 듣기' : '5회 학습 듣기'}
-        </button>
-        {playing >= 0 && <span role="status" className="text-xs text-slate-500">{learning ? `${pass + 1}/${PASS_COUNT}회 · ${playback.passLabel} · ` : '재생 중 '}{playing + 1}/{playableVerses.length}{tab === 'vocab' ? '단어' : '문장'}</span>}
+        </button>}
+        {playing >= 0 && <span role="status" className="text-xs text-slate-500">{learning ? `${pass + 1}/${PASS_COUNT}회 · ${playback.passLabel} · ` : '재생 중 '}{playing + 1}/{playableVerses.length}{tab === 'vocab' ? '단어' : tab === 'trap' ? '항목' : '문장'}</span>}
       </div>
       {playback.completed && <p role="status" className="text-sm text-brand mb-2">{PASS_COUNT}회 학습 듣기를 마쳤어요. 기존 표시 설정으로 돌아왔어요.</p>}
-      <p id="learning-listening-guide" className="text-xs text-slate-500 mb-3">{GUIDE_TEXT} 매회 {tab === 'vocab' ? '단어' : '선택한 내용'} 전체를 듣고, 종료하면 기존 표시 설정으로 돌아와요.</p>
+      {readOnly
+        ? <p className="text-xs text-slate-500 mb-3">{tab === 'grammar' ? '문법의 예문을 중국어로 읽어요. 제목과 여러 항목이 섞인 일부 줄은 건너뛰어요.' : '발음 함정의 중국어를 읽어요.'} <b>한글 해설</b>은 음원이 없으면 한국어 기기 음성으로 읽어요.</p>
+        : <p id="learning-listening-guide" className="text-xs text-slate-500 mb-3">{GUIDE_TEXT} 매회 {tab === 'vocab' ? '단어' : '선택한 내용'} 전체를 듣고, 종료하면 기존 표시 설정으로 돌아와요.</p>}
       <div className="flex gap-1 overflow-x-auto mb-3 border-b border-slate-200">
         {TABS.map(([k, label]) => (
           <button
@@ -211,11 +222,14 @@ export default function LessonPage() {
         lesson.grammar.map((g, i) => (
           <div key={i} className="border border-slate-200 rounded-xl p-3 mb-2">
             <div className="font-semibold mb-1">{g.title}</div>
-            {g.lines.map((l, j) => (
-              <div key={j} className="text-sm text-slate-700">
-                {l}
-              </div>
-            ))}
+            {g.lines.map((l, j) => {
+              const k = readItems.findIndex((r) => r.group === i && r.line === j);
+              return (
+                <div key={j} data-playback-line={k >= 0 ? k : undefined} aria-current={k >= 0 && k === playing ? 'true' : undefined} className={`text-sm text-slate-700 ${k >= 0 && k === playing ? 'ring-2 ring-brand rounded' : ''}`}>
+                  {l}
+                </div>
+              );
+            })}
           </div>
         ))}
 
@@ -234,7 +248,7 @@ export default function LessonPage() {
       {tab === 'trap' &&
         (lesson.traps.length ? (
           lesson.traps.map((t, i) => (
-            <div key={i} className="border border-amber-200 bg-amber-50 rounded-xl p-3 mb-2 text-sm">
+            <div key={i} data-playback-line={i} aria-current={i === playing ? 'true' : undefined} className={`border border-amber-200 bg-amber-50 rounded-xl p-3 mb-2 text-sm ${i === playing ? 'ring-2 ring-brand' : ''}`}>
               <div className="font-semibold">
                 <Icon name="bulb" size={16} className="inline -mt-0.5 mr-1" /><span lang="zh-Hans" className="font-hanzi text-xl">{t.target}</span> <span lang="zh-Latn-pinyin" className="reading-pinyin font-normal">{t.pinyin}</span>
               </div>
