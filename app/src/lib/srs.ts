@@ -1,7 +1,11 @@
-/** 못함 카드는 날짜 제한 없이 언제든 복습할 수 있다. 맞히면 익힌 것으로 보고 목록에서 빠지고, 틀리면 남는다. */
-export type ReviewCard = { lessonId: string; zh: string };
+/** 못함 카드는 날짜 제한 없이 언제든 복습한다. 듣고 이해와 보고 떠올리기를 둘 다 통과해야 목록에서 빠진다. */
+export type ReviewCard = { lessonId: string; zh: string; heard?: boolean; recalled?: boolean };
+export type ReviewKind = 'heard' | 'recalled';
 
 export const cardKey = (lessonId: string, zh: string) => `${lessonId}|${zh}`;
 
-/** 맞으면 졸업(null), 틀리면 그대로 남긴다. */
-export const nextCard = (card: ReviewCard, ok: boolean): ReviewCard | null => (ok ? null : card);
+/** 한 단계 결과를 반영한다. 두 단계를 모두 통과하면 졸업(null), 아니면 카드가 남는다. */
+export const markCard = (card: ReviewCard, kind: ReviewKind, ok: boolean): ReviewCard | null => {
+  const next = { ...card, [kind]: ok };
+  return next.heard && next.recalled ? null : next;
+};

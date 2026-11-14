@@ -293,11 +293,12 @@ function Quiz({ lines, results, onDone }: {
   );
 }
 
-function QuizRun({ face, lines, previous, onDone }: {
+export function QuizRun({ face, lines, previous, onDone, max = 10, extra, redNote = true }: {
   face: QuizFace; lines: StudyLine[]; previous: DeckResult | null;
-  onDone: (result: DeckResult, wrongLineIndexes: number[]) => void;
+  onDone: (result: DeckResult, wrongLineIndexes: number[], askedLineIndexes: number[]) => void;
+  max?: number; extra?: StudyLine[]; redNote?: boolean;
 }) {
-  const items = useMemo<QuizItem[]>(() => buildQuiz(lines, 10, face), [lines, face]);
+  const items = useMemo<QuizItem[]>(() => buildQuiz(lines, max, face, extra), [lines, max, face, extra]);
   const [n, setN] = useState(0);
   const [chosen, setChosen] = useState<number | null>(null);
   const [wrong, setWrong] = useState<number[]>([]);
@@ -314,7 +315,7 @@ function QuizRun({ face, lines, previous, onDone }: {
   if (done) {
     return (
       <section className="space-y-3" aria-label="듣고 이해 결과">
-        <p role="status" className="rounded-xl border border-brand-200 bg-brand-50 p-3 text-sm"><b>{correct}/{items.length}</b> 맞혔어요. 틀린 문장은 빨강 북마크에 담았어요. 위에서 {face === 'ko' ? '간체' : '한글'} 문제도 풀 수 있어요.</p>
+        <p role="status" className="rounded-xl border border-brand-200 bg-brand-50 p-3 text-sm"><b>{correct}/{items.length}</b> 맞혔어요.{redNote ? ` 틀린 문장은 빨강 북마크에 담았어요. 위에서 ${face === 'ko' ? '간체' : '한글'} 문제도 풀 수 있어요.` : ''}</p>
         <button type="button" className={btn} onClick={() => { setN(0); setChosen(null); setWrong([]); setCorrect(0); setDone(false); }}>퀴즈 다시 풀기</button>
       </section>
     );
@@ -331,7 +332,7 @@ function QuizRun({ face, lines, previous, onDone }: {
     window.setTimeout(() => {
       if (n + 1 < items.length) { setN(n + 1); setChosen(null); return; }
       setDone(true);
-      onDone({ correct: nextCorrect, total: items.length }, nextWrong);
+      onDone({ correct: nextCorrect, total: items.length }, nextWrong, items.map((it) => it.index));
     }, ok ? 1000 : 2200);
   };
   return (

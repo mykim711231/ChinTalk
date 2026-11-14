@@ -157,8 +157,8 @@ function clauseEnds(zh: string, tokens: Token[], ranges: { start: number; end: n
         if ((left.kind === 'noun' || left.kind === 'prep' || left.kind === 'time') && right.kind === 'verb') cue = 1.3;
         if (left.kind === 'verb' && right.kind === 'noun') cue = right.size >= 4 ? 1.3 : 0.15;
       }
-      const rhythm = size < 3 ? (3 - size) * 2 : (size - 5) ** 2 * 0.16 + Math.max(0, size - 10) ** 2;
-      const cost = costs[from] + rhythm + (right ? 1.1 - cue * 2 : 0);
+      const rhythm = size < 3 ? (3 - size) * 2 : (size - 4) ** 2 * 0.16 + Math.max(0, size - 10) ** 2;
+      const cost = costs[from] + rhythm + (right ? 0.5 - cue * 2 : 0);
       if (cost < costs[to]) { costs[to] = cost; before[to] = from; }
     }
   }

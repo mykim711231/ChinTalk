@@ -13,9 +13,11 @@ const shuffle = <T,>(a: T[]) => {
  * 들려 주는 문장을 4지선다로 묻는다. face가 ko면 한글 뜻, zh면 같은 간체 문장을 고른다.
  * 오답은 같은 학습 대상의 다른 문장에서 뽑는다.
  */
-export function buildQuiz(lines: StudyLine[], max = 10, face: QuizFace = 'ko'): QuizItem[] {
+export function buildQuiz(lines: StudyLine[], max = 10, face: QuizFace = 'ko', extra: StudyLine[] = []): QuizItem[] {
   const text = (i: number) => (face === 'ko' ? lines[i].verse.ko : lines[i].verse.zh);
-  const pool = [...new Set(lines.map((_, i) => text(i)).filter(Boolean))];
+  // extra: 오답 보기로만 쓰는 문장(복습처럼 문제 수가 적을 때)
+  const pick = (l: StudyLine) => (face === 'ko' ? l.verse.ko : l.verse.zh);
+  const pool = [...new Set([...lines.map((_, i) => text(i)), ...extra.map(pick)].filter(Boolean))];
   if (pool.length < 2) return [];
   const picked = shuffle(lines.map((_, i) => i).filter((i) => text(i))).slice(0, max);
   return picked.map((index) => {

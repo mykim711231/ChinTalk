@@ -1,16 +1,21 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { nextCard, type ReviewCard } from '../src/lib/srs';
+import { markCard, type ReviewCard } from '../src/lib/srs';
 import { recallOrder, BATCH, currentCard, gradeCard, masteryScore, recallAccuracy, remainingCards, shadowCount, startRecall } from '../src/lib/recall';
 import { buildQuiz } from '../src/lib/quiz';
 import type { StudyLine } from '../src/lib/studyContent';
 
 const line = (n: number): StudyLine => ({ source: 'text', verse: { zh: `句${n}`, pinyin: `p${n}`, ko: `뜻${n}`, chunks: [] } });
 
-test('복습: 맞히면 졸업, 틀리면 그대로 남는다(날짜 제한 없음)', () => {
+test('복습: 듣고 이해와 보고 떠올리기를 둘 다 통과해야 졸업한다', () => {
   const card: ReviewCard = { lessonId: 'v1-01', zh: '句' };
-  assert.equal(nextCard(card, true), null);
-  assert.deepEqual(nextCard(card, false), card);
+  const heard = markCard(card, 'heard', true);
+  assert.deepEqual(heard, { ...card, heard: true });
+  assert.equal(markCard(heard!, 'recalled', true), null);
+  const failed = markCard(heard!, 'recalled', false);
+  assert.deepEqual(failed, { ...card, heard: true, recalled: false });
+  assert.equal(markCard(markCard(card, 'recalled', true)!, 'heard', true), null);
+  assert.deepEqual(markCard({ ...card, heard: true }, 'heard', false), { ...card, heard: false });
 });
 
 test('떠올리기: 첫 시도 못함은 더미로, 더미가 빌 때까지 반복', () => {
