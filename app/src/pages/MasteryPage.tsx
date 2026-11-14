@@ -292,12 +292,17 @@ function Quiz({ lines, previous, onDone }: {
   const pick = (i: number) => {
     if (chosen !== null) return;
     setChosen(i);
-    if (i === item.answer) setCorrect((c) => c + 1); else setWrong((w) => [...w, item.index]);
-  };
-  const next = () => {
-    if (n + 1 < items.length) { setN(n + 1); setChosen(null); return; }
-    setDone(true);
-    onDone({ correct, total: items.length }, wrong);
+    const ok = i === item.answer;
+    const nextCorrect = correct + (ok ? 1 : 0);
+    const nextWrong = ok ? wrong : [...wrong, item.index];
+    setCorrect(nextCorrect);
+    setWrong(nextWrong);
+    // 정답 확인 뒤 자동으로 다음 문제로 넘어간다(오답은 조금 더 오래 보여 준다).
+    window.setTimeout(() => {
+      if (n + 1 < items.length) { setN(n + 1); setChosen(null); return; }
+      setDone(true);
+      onDone({ correct: nextCorrect, total: items.length }, nextWrong);
+    }, ok ? 1000 : 2200);
   };
   return (
     <section className="space-y-3" aria-label="듣고 이해 퀴즈">
@@ -312,8 +317,7 @@ function Quiz({ lines, previous, onDone }: {
       {chosen !== null && (
         <div role="status" className="space-y-2">
           <div lang="zh-Hans" className="font-hanzi text-xl">{lines[item.index].verse.zh}</div>
-          <div className="text-sm">{chosen === item.answer ? '정답이에요.' : '아쉬워요. 초록색이 정답이에요.'}</div>
-          <button type="button" className={btnBrand} onClick={next}>{n + 1 < items.length ? '다음 문제' : '결과 보기'}</button>
+          <div className="text-sm">{chosen === item.answer ? '정답이에요.' : '아쉬워요. 초록색이 정답이에요. 곧 다음 문제로 넘어가요.'}</div>
         </div>
       )}
     </section>
