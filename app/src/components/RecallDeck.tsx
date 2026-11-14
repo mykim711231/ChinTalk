@@ -27,7 +27,7 @@ export default function RecallDeck({ lines, carry = { correct: 0, total: 0 }, on
   const [shadowDone, setShadowDone] = useState(0);
   const [ready, setReady] = useState(false);
   const shadow = useShadowing(lines, stopSpeak);
-  const { canRecord, micPermission, capture, startRecording, stopRecording, play, clips, playback } = shadow;
+  const { canRecord, capture, startRecording, stopRecording, play, clips, playback } = shadow;
   const cur = currentCard(rs);
   const finished = useRef(false);
   const autoPlayed = useRef('');
@@ -40,7 +40,6 @@ export default function RecallDeck({ lines, carry = { correct: 0, total: 0 }, on
     const lead = 2000 + 300 * hanziCount(lines[cur].verse.zh);
     const timer = window.setTimeout(() => {
       setReady(true);
-      if (canRecord && micPermission !== 'denied') void startRecording(cur);
     }, lead);
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -100,8 +99,7 @@ export default function RecallDeck({ lines, carry = { correct: 0, total: 0 }, on
     </div>
   );
   const clip = clips[cur];
-  const micFailed = micPermission === 'denied' || (!!shadow.error && shadow.errorKind === 'microphone');
-  const fresh = !canRecord || micFailed || (!!clip && clip.url !== baseClip.current);
+  const fresh = true; // 녹음은 선택 사항: 마이크 없이도 진행
   const playing = playback?.index === cur ? playback : null;
 
   return (
@@ -118,8 +116,7 @@ export default function RecallDeck({ lines, carry = { correct: 0, total: 0 }, on
             {line.speaker && <div className="text-xs text-slate-500">{line.speaker}</div>}
             <div className="text-xl font-semibold leading-snug">{v.ko}</div>
             <p className="text-sm text-slate-500" role="status">
-              {capture?.phase === 'recording' ? <span className="text-red-700 font-semibold">● 녹음 중 · 중국어로 말해 보세요</span>
-                : ready ? '준비되면 뒤집어 확인하세요.' : '한자를 떠올려 말할 준비를 해요…'}
+              {ready ? '소리 내어 말한 뒤 뒤집어 확인하세요.' : '한자를 떠올려 말할 준비를 해요…'}
             </p>
             <button type="button" className="inline-flex items-center gap-1.5 rounded-full bg-brand text-white font-semibold px-6 py-3 disabled:opacity-40" disabled={capture?.phase === 'requesting' || capture?.phase === 'saving'} onClick={flip}>
               <Icon name="refresh" size={16} /> {ready ? '뒤집기' : '준비됐어요 · 뒤집기'}
@@ -158,11 +155,10 @@ export default function RecallDeck({ lines, carry = { correct: 0, total: 0 }, on
       )}
       {phase === 'shadow' && (
         <button type="button" disabled={busy || !fresh} onClick={countShadow} className="w-full rounded-2xl bg-brand text-white font-bold py-3 disabled:opacity-40">
-          따라 했어요 ({shadowDone + 1}/{need}){!fresh ? ' · 먼저 녹음해 주세요' : ''}
+          따라 했어요 ({shadowDone + 1}/{need})
         </button>
       )}
-      {phase === 'shadow' && canRecord && micFailed && <p className="text-xs text-slate-500">마이크를 쓸 수 없어 녹음 없이 진행해요. 소리 내어 따라 말한 뒤 눌러 주세요.</p>}
-      {phase === 'shadow' && !canRecord && <p className="text-xs text-slate-500">이 기기는 녹음을 쓸 수 없어요. 소리 내어 따라 말한 뒤 눌러 주세요.</p>}
+      {phase === 'shadow' && <p className="text-xs text-slate-500">녹음은 선택이에요. 소리 내어 따라 말한 뒤 눌러 주세요.</p>}
     </section>
   );
 }
