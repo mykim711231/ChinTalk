@@ -17,7 +17,7 @@ export const LISTENING_PASSES: ListeningPass[] = [
   { label: '한자·병음 (뜻 숨김)', display: D(true, true, false) },
   { label: '한자만 (따라 말하기)', display: D(true, false, false), shadow: true },
   { label: '소리만 (따라 말하기)', display: D(false, false, false), shadow: true },
-  { label: '한자만 (먼저 읽고 확인)', display: D(true, false, false), leadMs: 1000, leadPerChar: 250 },
+  { label: '한자만 (먼저 읽고 확인)', display: D(true, false, false), leadMs: 2000, leadPerChar: 300 },
   { label: '한글만 (떠올린 뒤 확인)', display: D(false, false, true), leadMs: 2000, leadPerChar: 300 },
   { label: '모두 표시 (확인)', display: D(true, true, true) },
   { label: '한글만 (순서 섞음)', display: D(false, false, true), leadMs: 2000, leadPerChar: 300, shuffle: true },

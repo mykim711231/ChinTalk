@@ -102,7 +102,7 @@ async function main() {
         await page.getByText('10회 학습 듣기를 마쳤어요. 기존 표시 설정으로 돌아왔어요.', { exact: true }).waitFor();
         assert.deepEqual(await page.evaluate(() => window.__spoken), expected);
         assert.equal(await delaysOf(leadsOf(verses, 2000, 300)) >= verses.length, true); // 한글만 회차 재생 전 대기(문장 길이 비례)
-        assert.equal(await delaysOf(leadsOf(verses, 1000, 250)) >= verses.length, true); // 한자만 먼저 읽기 회차 대기
+        assert.equal(await delaysOf(leadsOf(verses, 2000, 300)) >= verses.length, true); // 한자만 먼저 읽기·한글만 회차 대기(값이 같아 합쳐서 확인)
         await restored();
       };
       const runVocab = async () => {
