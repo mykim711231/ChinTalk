@@ -23,7 +23,7 @@ import { useHighlightStore } from '../stores/useHighlightStore';
 import { useShadowing, type ShadowingController } from '../hooks/useShadowing';
 import { usePlaybackFollow } from '../hooks/usePlaybackFollow';
 
-const STAGES = ['듣고 이해', '한글 보고 떠올리기', '간체 보고 떠올리기', '따라 말하기'] as const;
+const STAGES = ['듣고 이해', '보고 떠올리기', '따라 말하기'] as const;
 type Face = 'ko' | 'zh';
 type DeckResult = { correct: number; total: number };
 const btn = 'inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white text-sm font-semibold px-3 py-2 disabled:opacity-40';
@@ -87,6 +87,7 @@ function MasteryContent({ id, source, onSourceChange }: {
     const parts = [quizRes.ko, quizRes.zh].filter((x): x is DeckResult => !!x);
     return parts.length ? { correct: parts.reduce((n, x) => n + x.correct, 0), total: parts.reduce((n, x) => n + x.total, 0) } : null;
   }, [quizRes]);
+  const [face, setFace] = useState<Face>('ko');
   const [decks, setDecks] = useState<{ ko: DeckResult | null; zh: DeckResult | null }>({ ko: null, zh: null });
   const [deckKey, setDeckKey] = useState({ ko: 0, zh: 0 });
   const prog = useProgressStore();
@@ -96,7 +97,7 @@ function MasteryContent({ id, source, onSourceChange }: {
   const lines = useMemo(() => lesson ? studyLines(lesson, source) : [], [lesson, source]);
   const all = usePlayAll(lines);
   const shadow = useShadowing(lines, all.stop);
-  const follow = usePlaybackFollow(stage === 3 ? all.playing : -1, `${lesson?.id ?? ''}:${source}:${stage}`);
+  const follow = usePlaybackFollow(stage === 2 ? all.playing : -1, `${lesson?.id ?? ''}:${source}:${stage}`);
   const nav = useNavigate();
   const [metas, setMetas] = useState<LessonMeta[]>([]);
   useEffect(() => { void loadMeta().then(setMetas); }, []);
@@ -128,10 +129,10 @@ function MasteryContent({ id, source, onSourceChange }: {
       <LessonSelect label="과 선택" metas={metas} value={lesson.id} recId={recommendLesson(metas, prog, level)?.id} isDone={(id) => isUnlocked(prog, id)} onChange={(v) => { all.stop(); nav(`/lesson/${v}/mastery?source=${source}`); }} />
 
       <StudySourceSelector value={source} lesson={lesson} onChange={(value) => { all.stop(); onSourceChange(value); }} />
-      <p className="text-xs text-slate-500">{sourceLabel} · {lines.length}문장으로 4단계(듣고 이해 → 한글 보고 떠올리기 → 간체 보고 떠올리기 → 따라 말하기)를 진행해요. 본문은 무작위, 회화는 순서대로 나와요. 대상을 바꾸면 1단계부터 시작해요.</p>
+      <p className="text-xs text-slate-500">{sourceLabel} · {lines.length}문장으로 4단계(듣고 이해 → 보고 떠올리기(한글/간체) → 따라 말하기)를 진행해요. 본문은 무작위, 회화는 순서대로 나와요. 대상을 바꾸면 1단계부터 시작해요.</p>
       {!lines.length && <p role="status" className="text-sm text-slate-500">등록된 {sourceLabel} 내용이 없어요. 다른 학습 내용을 선택해 주세요.</p>}
 
-      <ol className="grid grid-cols-4 gap-1" aria-label="진행 단계">
+      <ol className="grid grid-cols-3 gap-1" aria-label="진행 단계">
         {STAGES.map((s, i) => (
           <li key={s}>
             <button
@@ -147,7 +148,7 @@ function MasteryContent({ id, source, onSourceChange }: {
         ))}
       </ol>
 
-      {stage === 3 && <div ref={follow.controlsRef} className={`flex flex-wrap items-center gap-3 ${all.playing >= 0 ? 'playback-controls' : ''}`} aria-label="듣기와 표시 설정">
+      {stage === 2 && <div ref={follow.controlsRef} className={`flex flex-wrap items-center gap-3 ${all.playing >= 0 ? 'playback-controls' : ''}`} aria-label="듣기와 표시 설정">
         <button type="button" disabled={!lines.length || !!shadow.capture} className={btnBrand} onClick={() => {
           shadow.stopPlayback();
           if (all.playing >= 0) all.stop(); else void all.play();
@@ -166,8 +167,17 @@ function MasteryContent({ id, source, onSourceChange }: {
         for (const i of wrong) addRed(lines[i].verse.chunks.map((c) => c.id));
       }} />}
 
-      {(stage === 1 || stage === 2) && (() => {
-        const face: Face = stage === 1 ? 'ko' : 'zh';
+      {stage === 1 && (
+        <div role="group" aria-label="카드 유형" className="flex gap-2 text-sm">
+          {(['ko', 'zh'] as const).map((f) => (
+            <button key={f} type="button" aria-pressed={face === f} onClick={() => setFace(f)} className={`flex-1 rounded-full border px-3 py-2 font-semibold ${face === f ? 'bg-brand text-white border-brand' : 'bg-white border-slate-200'}`}>
+              {f === 'ko' ? '한글 보고' : '간체 보고'}{decks[f] ? ` ${decks[f]!.correct}/${decks[f]!.total}` : ''}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {stage === 1 && (() => {
         const pend = face === 'ko' ? pendingKo : pendingZh;
         const key = face === 'ko' ? kKey : zKey;
         const res = decks[face];
@@ -193,8 +203,8 @@ function MasteryContent({ id, source, onSourceChange }: {
                 <p>못한 문장은 빨강 북마크에 담고, 1일 · 3일 · 7일 뒤에 <Link to="/review" className="underline font-semibold">복습</Link>으로 다시 나와요.</p>
                 <div className="flex flex-wrap gap-2">
                   <button type="button" className={btnBrand} onClick={() => { setDecks({ ...decks, [face]: null }); setDeckKey({ ...deckKey, [face]: deckKey[face] + 1 }); }}>다시 도전</button>
-                  {face === 'ko' && <button type="button" className={btn} onClick={() => go(2)}>간체 보고 떠올리기 <Icon name="chevronRight" size={16} /></button>}
-                  {face === 'zh' && <button type="button" className={btn} onClick={() => go(3)}>따라 말하기 <Icon name="chevronRight" size={16} /></button>}
+                  {face === 'ko' && !decks.zh && <button type="button" className={btn} onClick={() => setFace('zh')}>간체 보고 떠올리기 <Icon name="chevronRight" size={16} /></button>}
+                  {(face === 'zh' || decks.zh) && <button type="button" className={btn} onClick={() => go(2)}>따라 말하기 <Icon name="chevronRight" size={16} /></button>}
                   {both && <Link to={`/passive?source=${source}`} className={btn}><Icon name="headphones" size={16} /> 편하게 듣기</Link>}
                 </div>
               </div>
@@ -221,13 +231,13 @@ function MasteryContent({ id, source, onSourceChange }: {
         );
       })()}
 
-      {stage === 3 && <Shadowing lines={lines} shadow={shadow} playingIndex={all.playing} />}
+      {stage === 2 && <Shadowing lines={lines} shadow={shadow} playingIndex={all.playing} />}
 
       <div className="flex justify-between pt-2">
         <button type="button" className={btn} disabled={stage === 0} onClick={() => go(stage - 1)}>
           <Icon name="chevronLeft" size={16} /> 이전 단계
         </button>
-        <button type="button" className={btn} disabled={stage === 3 || !lines.length} onClick={() => go(stage + 1)}>
+        <button type="button" className={btn} disabled={stage === 2 || !lines.length} onClick={() => go(stage + 1)}>
           다음 단계 <Icon name="chevronRight" size={16} />
         </button>
       </div>

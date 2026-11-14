@@ -60,7 +60,7 @@ export default function StudyPage() {
         <Icon name="target" size={26} className="text-brand flex-none" />
         <span className="min-w-0 flex-1">
           <b className="block">심화 학습</b>
-          <span className="block text-xs text-slate-500">{studySourceLabel(source)} · 듣고 이해 → 한글 보고 떠올리기 → 간체 보고 떠올리기 → 따라 말하기로 깊이 익혀요.</span>
+          <span className="block text-xs text-slate-500">{studySourceLabel(source)} · 듣고 이해 → 보고 떠올리기(한글/간체) → 따라 말하기로 깊이 익혀요.</span>
         </span>
         <Icon name="arrowRight" size={18} className="text-slate-400" />
       </Link>
