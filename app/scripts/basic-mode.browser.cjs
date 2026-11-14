@@ -55,6 +55,7 @@ async function main() {
         await page.getByRole('combobox', { name: '학습할 과' }).selectOption('v8-20');
         assert.equal(await page.getByRole('link', { name: /^교재 학습/ }).getAttribute('href'), '#/lesson/v8-20');
         await go('/lesson/v1-01');
+        await page.getByRole('button', { name: '본문', exact: true }).click();
         await page.getByRole('button', { name: '본문 전체 듣기', exact: true }).waitFor();
         assert.equal(await page.getByRole('button', { name: /심화 학습/ }).count(), 0);
         assert.ok(await page.locator('ruby rt').count());

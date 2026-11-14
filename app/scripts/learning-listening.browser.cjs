@@ -55,6 +55,7 @@ async function main() {
       const page = await context.newPage(); page.setDefaultTimeout(15000);
       const errors = []; page.on('pageerror', e => errors.push(e.message));
       await page.goto(`${base}#/lesson/v1-02`);
+      await page.getByRole('button', { name: '본문', exact: true }).click();
       await page.getByRole('button', { name: '본문 10회 학습 듣기', exact: true }).waitFor();
       const settings = await page.evaluate(() => localStorage.getItem('chintalk-settings'));
       const current = () => page.locator('[data-playback-line][aria-current=true]');

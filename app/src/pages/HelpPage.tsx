@@ -50,7 +50,7 @@ function AudioTest() {
 const GUIDES: Item[] = [
   {
     id: 'structure', icon: 'map', title: '이 앱은 어떻게 학습하나요?',
-    subtitle: '한 과는 본문 → 단어 → 문법 → 회화 순서예요.',
+    subtitle: '한 과는 단어 → 본문 → 회화 → 문법 순서예요.',
     keywords: '학습 방법 본문 단어 문법 회화 레벨 과 구조 청크 형광펜 학습 듣기 5회 10회 반복 소리만 따라 말하기 병음 한글 한자',
     body: (
       <>

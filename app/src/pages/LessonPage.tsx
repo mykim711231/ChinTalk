@@ -15,17 +15,17 @@ import { DIALOG_PASSES, LISTENING_GUIDE, LISTENING_PASSES, VOCAB_GUIDE, VOCAB_PA
 
 type Tab = 'text' | 'vocab' | 'grammar' | 'dialog';
 const TABS: [Tab, string][] = [
-  ['text', '본문'],
   ['vocab', '단어'],
-  ['grammar', '문법'],
+  ['text', '본문'],
   ['dialog', '회화'],
+  ['grammar', '문법'],
 ];
 
 export default function LessonPage() {
   const basic = isBasicMode();
   const { id = '' } = useParams();
   const [lesson, setLesson] = useState<Lesson | null | undefined>(undefined);
-  const [tab, setTab] = useState<Tab>('text');
+  const [tab, setTab] = useState<Tab>('vocab');
   const settings = useSettingsStore();
   const { showMeaningUnits, toggle } = settings;
   const progress = useProgressStore();
