@@ -1,21 +1,31 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { markCard, type ReviewCard } from '../src/lib/srs';
+import { markCard, passed, type ReviewCard } from '../src/lib/srs';
 import { recallOrder, BATCH, currentCard, gradeCard, masteryScore, recallAccuracy, remainingCards, shadowCount, startRecall } from '../src/lib/recall';
 import { buildQuiz } from '../src/lib/quiz';
 import type { StudyLine } from '../src/lib/studyContent';
 
 const line = (n: number): StudyLine => ({ source: 'text', verse: { zh: `句${n}`, pinyin: `p${n}`, ko: `뜻${n}`, chunks: [] } });
 
-test('복습: 듣고 이해와 보고 떠올리기를 둘 다 통과해야 졸업한다', () => {
-  const card: ReviewCard = { lessonId: 'v1-01', zh: '句' };
-  const heard = markCard(card, 'heard', true);
-  assert.deepEqual(heard, { ...card, heard: true });
-  assert.equal(markCard(heard!, 'recalled', true), null);
-  const failed = markCard(heard!, 'recalled', false);
-  assert.deepEqual(failed, { ...card, heard: true, recalled: false });
-  assert.equal(markCard(markCard(card, 'recalled', true)!, 'heard', true), null);
-  assert.deepEqual(markCard({ ...card, heard: true }, 'heard', false), { ...card, heard: false });
+test('복습: 듣고 이해·떠올리기 x 한글·간체 4가지를 모두 통과해야 졸업한다', () => {
+  let card: ReviewCard | null = { lessonId: 'v1-01', zh: '句' };
+  for (const k of ['heardKo', 'heardZh', 'recalledKo'] as const) {
+    card = markCard(card!, k, true);
+    assert.notEqual(card, null);
+  }
+  assert.equal(passed(card!, 'recalledZh'), false);
+  const failed = markCard(card!, 'heardKo', false)!;
+  assert.equal(passed(failed, 'heardKo'), false);
+  assert.equal(passed(failed, 'heardZh'), true);
+  assert.equal(markCard(markCard(failed, 'heardKo', true)!, 'recalledZh', true), null);
+});
+
+test('복습: 이전 버전 카드의 heard/recalled는 한글 항목 통과로 읽는다', () => {
+  const old: ReviewCard = { lessonId: 'v1-01', zh: '句', heard: true, recalled: true };
+  assert.equal(passed(old, 'heardKo'), true);
+  assert.equal(passed(old, 'recalledKo'), true);
+  assert.equal(passed(old, 'heardZh'), false);
+  assert.notEqual(markCard(old, 'heardZh', true), null);
 });
 
 test('떠올리기: 첫 시도 못함은 더미로, 더미가 빌 때까지 반복', () => {

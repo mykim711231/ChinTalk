@@ -595,9 +595,9 @@ words: [我(wǒ) 很(hěn) 好(hǎo) 谢谢(xièxie)]
 
 **약점 처리**: 퀴즈 오답 + 첫 시도 못함 문장은 해당 구절의 Chunk를 🔴 빨강으로 마킹한다(우선 재학습).
 
-**심화 학습 복습(2차 — 날을 넘기는 복습)**: 첫 시도에서 못함인 문장은 `chintalk-review.cards`에 등록되고, **날짜 제한 없이 언제든** `/review`(복습)에서 플래시카드로 확인한다. 복습도 **듣고 이해(4지선다) → 보고 떠올리기(한글 보고)** 두 단계로 진행하며, **둘 다 통과한 문장만** 목록에서 빠지고 하나라도 틀리면 남는다. 홈·학습 메뉴에 "심화 학습 복습 N장"을 표시한다. (§1 이전의 "SRS 제외" 결정을 이 범위로 한정해 번복: 전체 어휘 SRS·검색은 여전히 제외.)
+**심화 학습 복습(2차 — 날을 넘기는 복습)**: 첫 시도에서 못함인 문장은 `chintalk-review.cards`에 등록되고, **날짜 제한 없이 언제든** `/review`(복습)에서 플래시카드로 확인한다. 복습은 **듣고 이해 한글·간체, 떠올리기 한글·간체** 4개 탭으로 나뉘며, **4가지를 모두 통과한 문장만** 목록에서 빠진다. 통과 기록은 항목별로 저장되고(못하면 그 항목만 미통과), 각 탭에는 그 항목을 아직 통과하지 못한 카드만 나온다. 홈·학습 메뉴에 "심화 학습 복습 N장"을 표시한다. (§1 이전의 "SRS 제외" 결정을 이 범위로 한정해 번복: 전체 어휘 SRS·검색은 여전히 제외.)
 
-**데이터**: `Lesson.traps[]`, `Lesson.body[].chunks[]`, `zh-tts-manifest.json` + `zh-timestamps.json`. 신규 스토어 `useReviewStore`(persist `chintalk-review`: `cards{lessonId,zh,heard?,recalled?}`, `pending`), 순수 로직 `lib/srs.ts`, `lib/recall.ts`, `lib/quiz.ts`, 컴포넌트 `RecallDeck`.
+**데이터**: `Lesson.traps[]`, `Lesson.body[].chunks[]`, `zh-tts-manifest.json` + `zh-timestamps.json`. 신규 스토어 `useReviewStore`(persist `chintalk-review`: `cards{lessonId,zh,heardKo?,heardZh?,recalledKo?,recalledZh?}`(이전 heard/recalled는 한글 항목으로 읽음), `pending`), 순수 로직 `lib/srs.ts`, `lib/recall.ts`, `lib/quiz.ts`, 컴포넌트 `RecallDeck`.
 **단어장**: 과 참고(S-004)에서 단어 탭 → 단어장 바텀시트 활성(§5.6). 🔴 마킹 단어는 재학습 시 우선 노출.
 
 ### 6.7 S-006 10분 데일리 루틴 (Daily Routine) — 시스템 주도
