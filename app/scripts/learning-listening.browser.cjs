@@ -128,7 +128,7 @@ async function main() {
       };
       await run('본문', body);
       await runVocab();
-      // 문법·발음 함정: 가림 단계 없이 전체 듣기만 제공하고, 한글 해설은 줄마다 한 번 더 읽는다.
+      // 문법: 가림 단계 없이 전체 듣기만 제공하고, 한글 해설은 줄마다 한 번 더 읽는다.
       const runReadOnly = async (tab, once, withKo) => {
         await page.getByRole('button', { name: tab, exact: true }).click();
         assert.equal(await page.getByRole('button', { name: /회 학습 듣기/ }).count(), 0);
@@ -148,7 +148,6 @@ async function main() {
         assert.ok(spoken.filter((_, i) => !withKo || i % 2 === 0).every(t => /[一-鿿]/.test(t)));
       };
       await runReadOnly('문법', '문법 전체 듣기', true);
-      await runReadOnly('발음 함정', '함정 전체 듣기', true);
       for (const [tab, label] of [['본문', '본문 전체 듣기'], ['회화', '회화 전체 듣기']]) {
         await page.getByRole('button', { name: tab, exact: true }).click();
         await page.evaluate(() => { window.__spoken = []; });

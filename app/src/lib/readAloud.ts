@@ -30,8 +30,3 @@ export function grammarItems(lesson: Lesson | null | undefined): ReadItem[] {
   }));
   return out;
 }
-
-/** 발음 함정 탭의 읽을 항목(중국어 대상 + 올바른 읽기 설명). */
-export function trapItems(lesson: Lesson | null | undefined): ReadItem[] {
-  return (lesson?.traps ?? []).map((t, group) => ({ verse: { zh: t.target, pinyin: t.pinyin, ko: t.correct, chunks: [] }, group, line: 0 }));
-}

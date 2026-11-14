@@ -41,7 +41,7 @@ export default function StudyPage() {
       {basic ? (
         <Link to={sel ? `/lesson/${sel}` : '/path'} className={card}>
           <Icon name="map" size={26} className="text-brand flex-none" />
-          <span className="min-w-0 flex-1"><b className="block">교재 학습</b><span className="block text-xs text-slate-500">본문·단어·문법·회화·발음 함정과 전체 듣기</span></span>
+          <span className="min-w-0 flex-1"><b className="block">교재 학습</b><span className="block text-xs text-slate-500">본문·단어·문법·회화와 전체 듣기</span></span>
           <Icon name="arrowRight" size={18} className="text-slate-400" />
         </Link>
       ) : <>
