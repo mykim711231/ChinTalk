@@ -9,7 +9,6 @@ import LessonSelect from '../components/LessonSelect';
 import { Toggle } from '../components/ui';
 import type { LessonMeta } from '../types/lesson';
 import { useStudySource } from '../hooks/useStudySource';
-import StudySourceSelector from '../components/StudySourceSelector';
 import { studySourceLabel } from '../lib/studyContent';
 import { isBasicMode } from '../lib/compatibility';
 import { dueCards, useReviewStore } from '../stores/useReviewStore';
@@ -19,7 +18,7 @@ const card = 'rounded-2xl border border-slate-200 bg-white shadow-sm flex items-
 /** 학습 메뉴: 10분 데일리 · 편하게 듣기 · 심화 학습 · 복습 */
 export default function StudyPage() {
   const basic = isBasicMode();
-  const { source, setSource } = useStudySource();
+  const { source } = useStudySource();
   const [meta, setMeta] = useState<LessonMeta[]>([]);
   const prog = useProgressStore();
   const reviewCards = useReviewStore((s) => s.cards);
@@ -36,8 +35,7 @@ export default function StudyPage() {
   return (
     <main className="p-4 pb-28 space-y-3">
       <h1 className="text-xl font-bold">학습</h1>
-      <p className="text-sm text-slate-600">{basic ? '교재에서 본문·단어·문법·회화를 읽고, 편하게 듣기에서 학습 대상을 골라 들을 수 있어요.' : '학습 대상을 고르면 10분 데일리·편하게 듣기에 적용돼요. 심화 학습은 본문+회화로 진행해요.'}</p>
-      <StudySourceSelector value={source} onChange={setSource} />
+      <p className="text-sm text-slate-600">{basic ? '교재에서 본문·단어·문법·회화를 읽고, 편하게 듣기에서 학습 대상을 골라 들을 수 있어요.' : '학습할 과를 고르고 원하는 학습을 시작하세요. 학습 대상(본문/회화)은 각 학습 화면에서 고를 수 있어요.'}</p>
       <LessonSelect label="학습할 과" metas={meta} value={sel} onChange={setPick} recId={rec?.id} isDone={basic ? undefined : (id) => isUnlocked(prog, id)} />
 
       {basic ? (
@@ -56,11 +54,11 @@ export default function StudyPage() {
         <Icon name="arrowRight" size={18} className="text-slate-400" />
       </Link>
 
-      <Link to={sel ? `/lesson/${sel}/mastery?source=${source}` : '/path'} className={card}>
+      <Link to={sel ? `/lesson/${sel}/mastery` : '/path'} className={card}>
         <Icon name="target" size={26} className="text-brand flex-none" />
         <span className="min-w-0 flex-1">
           <b className="block">심화 학습</b>
-          <span className="block text-xs text-slate-500">{studySourceLabel(source)} · 듣고 이해 → 보고 떠올리기(한글/간체) → 따라 말하기로 깊이 익혀요.</span>
+          <span className="block text-xs text-slate-500">본문+회화 · 듣고 이해 → 보고 떠올리기(한글/간체) → 따라 말하기로 깊이 익혀요.</span>
         </span>
         <Icon name="arrowRight" size={18} className="text-slate-400" />
       </Link>
