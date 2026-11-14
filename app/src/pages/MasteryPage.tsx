@@ -16,7 +16,7 @@ import HanText from '../components/HanText';
 import { alignChars } from '../lib/pinyin';
 import { Toggle } from '../components/ui';
 import RecallDeck from '../components/RecallDeck';
-import { buildQuiz, type QuizItem } from '../lib/quiz';
+import { buildQuiz, type QuizFace, type QuizItem } from '../lib/quiz';
 import { masteryScore, recallOrder } from '../lib/recall';
 import { pendingKey, useReviewStore } from '../stores/useReviewStore';
 import { useHighlightStore } from '../stores/useHighlightStore';
@@ -77,11 +77,16 @@ function MasteryContent({ id, source, onSourceChange }: {
   const pendingZh = useReviewStore((s) => s.pending[zKey]);
   const { setPending, addWeak } = useReviewStore();
   const addRed = useHighlightStore((s) => s.addRed);
-  const [quiz, setQuiz] = useState<{ correct: number; total: number } | null>(() => {
+  const [quizRes, setQuizRes] = useState<{ ko: DeckResult | null; zh: DeckResult | null }>(() => {
     const st = useReviewStore.getState().pending;
     const q = (st[kKey] ?? st[zKey])?.quiz;
-    return q == null ? null : { correct: Math.round(q * 100), total: 100 };
+    return { ko: q == null ? null : { correct: Math.round(q * 100), total: 100 }, zh: null };
   });
+  // 한글·간체 중 푼 것을 합쳐 듣고 이해 점수로 쓴다.
+  const quiz = useMemo<DeckResult | null>(() => {
+    const parts = [quizRes.ko, quizRes.zh].filter((x): x is DeckResult => !!x);
+    return parts.length ? { correct: parts.reduce((n, x) => n + x.correct, 0), total: parts.reduce((n, x) => n + x.total, 0) } : null;
+  }, [quizRes]);
   const [decks, setDecks] = useState<{ ko: DeckResult | null; zh: DeckResult | null }>({ ko: null, zh: null });
   const [deckKey, setDeckKey] = useState({ ko: 0, zh: 0 });
   const prog = useProgressStore();
@@ -156,8 +161,8 @@ function MasteryContent({ id, source, onSourceChange }: {
         {all.playing >= 0 && <span role="status" className="text-xs text-slate-500">재생 중 {all.playing + 1}/{lines.length}문장</span>}
       </div>}
 
-      {stage === 0 && <Quiz key={`${lesson.id}:${source}`} lines={lines} previous={quiz} onDone={(r, wrong) => {
-        setQuiz(r);
+      {stage === 0 && <Quiz key={`${lesson.id}:${source}`} lines={lines} results={quizRes} onDone={(face, r, wrong) => {
+        setQuizRes((q) => ({ ...q, [face]: r }));
         for (const i of wrong) addRed(lines[i].verse.chunks.map((c) => c.id));
       }} />}
 
@@ -250,11 +255,30 @@ function RecallStage({ face, lines, pending, intro, onGrade, onLater, onFinish }
   );
 }
 
-function Quiz({ lines, previous, onDone }: {
-  lines: StudyLine[]; previous: { correct: number; total: number } | null;
-  onDone: (result: { correct: number; total: number }, wrongLineIndexes: number[]) => void;
+function Quiz({ lines, results, onDone }: {
+  lines: StudyLine[]; results: { ko: DeckResult | null; zh: DeckResult | null };
+  onDone: (face: QuizFace, result: DeckResult, wrongLineIndexes: number[]) => void;
 }) {
-  const items = useMemo<QuizItem[]>(() => buildQuiz(lines), [lines]);
+  const [face, setFace] = useState<QuizFace>('ko');
+  return (
+    <div className="space-y-3">
+      <div role="group" aria-label="문제 유형" className="flex gap-2 text-sm">
+        {(['ko', 'zh'] as const).map((f) => (
+          <button key={f} type="button" aria-pressed={face === f} onClick={() => setFace(f)} className={`flex-1 rounded-full border px-3 py-2 font-semibold ${face === f ? 'bg-brand text-white border-brand' : 'bg-white border-slate-200'}`}>
+            {f === 'ko' ? '한글' : '간체'}{results[f] ? ` ${results[f]!.correct}/${results[f]!.total}` : ''}
+          </button>
+        ))}
+      </div>
+      <QuizRun key={face} face={face} lines={lines} previous={results[face]} onDone={(r, wrong) => onDone(face, r, wrong)} />
+    </div>
+  );
+}
+
+function QuizRun({ face, lines, previous, onDone }: {
+  face: QuizFace; lines: StudyLine[]; previous: DeckResult | null;
+  onDone: (result: DeckResult, wrongLineIndexes: number[]) => void;
+}) {
+  const items = useMemo<QuizItem[]>(() => buildQuiz(lines, 10, face), [lines, face]);
   const [n, setN] = useState(0);
   const [chosen, setChosen] = useState<number | null>(null);
   const [wrong, setWrong] = useState<number[]>([]);
@@ -271,7 +295,7 @@ function Quiz({ lines, previous, onDone }: {
   if (done) {
     return (
       <section className="space-y-3" aria-label="듣고 이해 결과">
-        <p role="status" className="rounded-xl border border-brand-200 bg-brand-50 p-3 text-sm"><b>{correct}/{items.length}</b> 맞혔어요. 틀린 문장은 빨강 북마크에 담았어요. 다음 단계에서 한글을 보고 중국어를 떠올려요.</p>
+        <p role="status" className="rounded-xl border border-brand-200 bg-brand-50 p-3 text-sm"><b>{correct}/{items.length}</b> 맞혔어요. 틀린 문장은 빨강 북마크에 담았어요. 위에서 {face === 'ko' ? '간체' : '한글'} 문제도 풀 수 있어요.</p>
         <button type="button" className={btn} onClick={() => { setN(0); setChosen(null); setWrong([]); setCorrect(0); setDone(false); }}>퀴즈 다시 풀기</button>
       </section>
     );
@@ -293,12 +317,12 @@ function Quiz({ lines, previous, onDone }: {
   };
   return (
     <section className="space-y-3" aria-label="듣고 이해 퀴즈">
-      <p className="text-sm text-slate-600">자막 없이 소리를 듣고, 알맞은 한글 뜻을 고르세요. ({n + 1}/{items.length}){previous ? ` · 지난 결과 ${previous.correct}/${previous.total}` : ''}</p>
+      <p className="text-sm text-slate-600">{face === 'ko' ? '자막 없이 소리를 듣고, 알맞은 한글 뜻을 고르세요.' : '소리를 듣고, 들은 문장과 같은 간체를 고르세요.'} ({n + 1}/{items.length}){previous ? ` · 지난 결과 ${previous.correct}/${previous.total}` : ''}</p>
       <button type="button" className={btnBrand} onClick={() => void speakAsync(lines[item.index].verse.zh)}><Icon name="speaker" size={16} /> 다시 듣기</button>
-      <div className="space-y-2" role="group" aria-label="한글 뜻 선택">
+      <div className="space-y-2" role="group" aria-label={face === 'ko' ? '한글 뜻 선택' : '간체 선택'}>
         {item.options.map((o, i) => {
           const state = chosen === null ? '' : i === item.answer ? 'border-green-500 bg-green-50' : i === chosen ? 'border-red-400 bg-red-50' : 'opacity-60';
-          return <button key={i} type="button" disabled={chosen !== null} onClick={() => pick(i)} className={`w-full text-left rounded-xl border px-3 py-3 text-sm bg-white border-slate-200 ${state}`}>{o}</button>;
+          return <button key={i} type="button" disabled={chosen !== null} onClick={() => pick(i)} className={`w-full text-left rounded-xl border px-3 py-3 text-sm bg-white border-slate-200 ${face === 'zh' ? 'font-hanzi text-xl' : ''} ${state}`} lang={face === 'zh' ? 'zh-Hans' : undefined}>{o}</button>;
         })}
       </div>
       {chosen !== null && (

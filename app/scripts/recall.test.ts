@@ -79,3 +79,10 @@ test('떠올리기 순서: 본문은 무작위, 회화는 순서 유지', () => 
   assert.deepEqual(out.slice(4).map((l) => l.verse.zh), ['句5', '句6', '句7']);
   assert.deepEqual(new Set(out.slice(0, 4).map((l) => l.verse.zh)), new Set(['句1', '句2', '句3', '句4']));
 });
+
+test('퀴즈: 간체 고르기는 정답이 같은 문장의 간체', () => {
+  const lines = Array.from({ length: 6 }, (_, i) => line(i));
+  const q = buildQuiz(lines, 10, 'zh');
+  assert.ok(q.length > 0);
+  for (const x of q) assert.equal(x.options[x.answer], lines[x.index].verse.zh);
+});
