@@ -5,6 +5,9 @@ const B = import.meta.env.BASE_URL;
 // scripts/tts-texts.ts 의 normalizeTts 와 동일해야 한다
 const normalize = (s: string) => s.replace(/\s+/g, ' ').trim();
 
+/** scripts/tts-texts.ts 의 zhSpeech 와 동일. 전화번호처럼 숫자 한자가 7개 이상 이어지면 1 은 yāo(幺)로 읽는다. 합성·기기 음성 모두 동일해야 한다 */
+export const zhSpeech = (s: string) => s.replace(/[一二三四五六七八九零〇]{7,}/g, (m) => m.replace(/一/g, '幺'));
+
 type Manifest = Record<string, string>;
 let manifestP: Promise<Manifest> | null = null;
 const loadManifest = (): Promise<Manifest> =>
@@ -57,7 +60,7 @@ function speakFallback(text: string, rate: number, done?: () => void, lang = 'zh
     useOfflineStore.setState({ playbackError: '오프라인 기기 음성이 없어요. 스마트폰에 해당 언어의 음성팩을 설치하거나 저장한 녹음 음성을 선택해 주세요.' });
     return done?.();
   }
-  const u = new SpeechSynthesisUtterance(text);
+  const u = new SpeechSynthesisUtterance(lang.startsWith('zh') ? zhSpeech(text) : text);
   u.lang = lang;
   if (voice) u.voice = voice;
   u.rate = rate;

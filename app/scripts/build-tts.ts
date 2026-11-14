@@ -3,7 +3,7 @@
 import { MsEdgeTTS, OUTPUT_FORMAT } from 'msedge-tts';
 import { existsSync, mkdirSync, writeFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { collectTexts, collectKo, hashOf, koHashOf, loadLessons, readManifest, readKoManifest, MANIFEST, KO_MANIFEST as KO_MAN, TTS_DIR } from './tts-texts';
+import { zhSpeech, collectTexts, collectKo, hashOf, koHashOf, loadLessons, readManifest, readKoManifest, MANIFEST, KO_MANIFEST as KO_MAN, TTS_DIR } from './tts-texts';
 
 const KO = process.argv.includes('--lang') && process.argv[process.argv.indexOf('--lang') + 1] === 'ko';
 const VOICE = KO ? 'ko-KR-SunHiNeural' : 'zh-CN-XiaoxiaoNeural';
@@ -20,7 +20,7 @@ mkdirSync(TTS_DIR, { recursive: true });
 const manifest = KO ? readKoManifest() : readManifest();
 
 async function synth(tts: MsEdgeTTS, text: string): Promise<Buffer> {
-  const { audioStream } = tts.toStream(text);
+  const { audioStream } = tts.toStream(KO ? text : zhSpeech(text));
   const chunks: Buffer[] = [];
   return new Promise((resolve, reject) => {
     audioStream.on('data', (d: Buffer) => chunks.push(d));

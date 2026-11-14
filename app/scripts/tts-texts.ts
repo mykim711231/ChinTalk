@@ -12,6 +12,8 @@ export const MANIFEST = join(DATA, 'zh-tts-manifest.json');
 
 /** 정규화: 재생 시 lib/tts.ts의 normalizeTts와 반드시 동일해야 한다 */
 export const normalizeTts = (s: string) => s.replace(/\s+/g, ' ').trim();
+/** 전화번호처럼 숫자 한자가 7개 이상 이어지면 1 은 yāo(幺)로 읽는다. 합성·기기 음성 모두 동일해야 한다 */
+export const zhSpeech = (s: string) => s.replace(/[一二三四五六七八九零〇]{7,}/g, (m) => m.replace(/一/g, '幺'));
 export const hashOf = (s: string) => createHash('sha1').update(normalizeTts(s)).digest('hex').slice(0, 12);
 
 export function loadLessons(vol: number): Lesson[] {
