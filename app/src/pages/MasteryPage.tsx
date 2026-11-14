@@ -10,8 +10,6 @@ import Icon from '../components/Icon';
 import LessonSelect from '../components/LessonSelect';
 import type { Lesson, LessonMeta, MasterySource, Verse } from '../types/lesson';
 import { studyLines, studySourceLabel, type StudyLine } from '../lib/studyContent';
-import { useStudySource } from '../hooks/useStudySource';
-import StudySourceSelector from '../components/StudySourceSelector';
 import HanText from '../components/HanText';
 import { alignChars } from '../lib/pinyin';
 import { Toggle } from '../components/ui';
@@ -53,22 +51,15 @@ function usePlayAll(lines: StudyLine[]) {
   return { playing, play, stop };
 }
 
+/** 심화 학습은 본문+회화를 함께 다룬다. */
+const SOURCE: MasterySource = 'all';
+
 export default function MasteryPage() {
   const { id = '' } = useParams();
-  const { source, setSource } = useStudySource();
-  return (
-    <MasteryContent
-      key={`${id}:${source}`}
-      id={id}
-      source={source}
-      onSourceChange={setSource}
-    />
-  );
+  return <MasteryContent key={id} id={id} source={SOURCE} />;
 }
 
-function MasteryContent({ id, source, onSourceChange }: {
-  id: string; source: MasterySource; onSourceChange: (source: MasterySource) => void;
-}) {
+function MasteryContent({ id, source }: { id: string; source: MasterySource }) {
   const [lesson, setLesson] = useState<Lesson | null | undefined>(undefined);
   const [stage, setStage] = useState(0);
   const kKey = pendingKey(id, source, 'ko');
@@ -139,8 +130,7 @@ function MasteryContent({ id, source, onSourceChange }: {
 
       <LessonSelect label="과 선택" metas={metas} value={lesson.id} recId={recommendLesson(metas, prog, level)?.id} isDone={(id) => isUnlocked(prog, id)} onChange={(v) => { all.stop(); nav(`/lesson/${v}/mastery?source=${source}`); }} />
 
-      <StudySourceSelector value={source} lesson={lesson} onChange={(value) => { all.stop(); onSourceChange(value); }} />
-      <p className="text-xs text-slate-500">{sourceLabel} · {lines.length}문장으로 4단계(듣고 이해 → 보고 떠올리기(한글/간체) → 따라 말하기)를 진행해요. 본문은 무작위, 회화는 순서대로 나와요. 대상을 바꾸면 1단계부터 시작해요.</p>
+      <p className="text-xs text-slate-500">{sourceLabel} · {lines.length}문장으로 4단계(듣고 이해 → 보고 떠올리기(한글/간체) → 따라 말하기)를 진행해요. 본문은 무작위, 회화는 순서대로 나와요.</p>
       {!lines.length && <p role="status" className="text-sm text-slate-500">등록된 {sourceLabel} 내용이 없어요. 다른 학습 내용을 선택해 주세요.</p>}
 
       <ol className="grid grid-cols-3 gap-1" aria-label="진행 단계">

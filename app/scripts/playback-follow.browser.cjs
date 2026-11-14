@@ -67,9 +67,8 @@ async function main() {
       assert.ok(Math.abs(await page.evaluate(() => scrollY) - y) < 2);
     };
     await page.goto(`${base}#/lesson/v1-02/mastery?source=text`, { waitUntil: 'commit' });
-    for (const source of ['text', 'dialog', 'all']) for (const stage of ['3. 따라 말하기']) {
-      const name = { text: '본문', dialog: '회화', all: '본문+회화' }[source];
-      await page.getByRole('group', { name: '학습 대상', exact: true }).getByRole('button', { name, exact: true }).click();
+    for (const stage of ['3. 따라 말하기']) {
+      const name = '본문+회화';
       await page.getByRole('button', { name: stage, exact: true }).click();
       await page.getByRole('button', { name: `${name} 전체 듣기`, exact: true }).click();
       await visible(0);
@@ -121,7 +120,7 @@ async function main() {
     await page.getByRole('button', { name: /^심화 학습/ }).click();
     await page.getByRole('button', { name: '3. 따라 말하기', exact: true }).click();
     await page.evaluate(() => { window.__scrolls = []; });
-    await page.getByRole('button', { name: '본문 전체 듣기', exact: true }).click();
+    await page.getByRole('button', { name: '본문+회화 전체 듣기', exact: true }).click();
     await page.waitForTimeout(700); await visible(0);
     assert.ok(await page.evaluate(() => window.__scrolls.some(args => args[0]?.behavior === 'instant')));
     await stop();

@@ -36,7 +36,7 @@ export default function StudyPage() {
   return (
     <main className="p-4 pb-28 space-y-3">
       <h1 className="text-xl font-bold">학습</h1>
-      <p className="text-sm text-slate-600">{basic ? '교재에서 본문·단어·문법·회화를 읽고, 편하게 듣기에서 학습 대상을 골라 들을 수 있어요.' : '학습 대상을 고르면 10분 데일리·심화 학습·편하게 듣기에 같은 선택이 적용돼요.'}</p>
+      <p className="text-sm text-slate-600">{basic ? '교재에서 본문·단어·문법·회화를 읽고, 편하게 듣기에서 학습 대상을 골라 들을 수 있어요.' : '학습 대상을 고르면 10분 데일리·편하게 듣기에 적용돼요. 심화 학습은 본문+회화로 진행해요.'}</p>
       <StudySourceSelector value={source} onChange={setSource} />
       <LessonSelect label="학습할 과" metas={meta} value={sel} onChange={setPick} recId={rec?.id} isDone={basic ? undefined : (id) => isUnlocked(prog, id)} />
 

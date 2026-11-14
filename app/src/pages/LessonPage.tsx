@@ -106,7 +106,7 @@ export default function LessonPage() {
   const chip = (on: boolean) =>
     `px-3 py-1 rounded-full text-sm border disabled:opacity-40 disabled:cursor-not-allowed ${on ? 'bg-brand text-white border-brand' : 'border-slate-300 text-slate-600'}`;
   const canDisplay = tab === 'text' || tab === 'dialog';
-  const masterySource = tab === 'dialog' ? 'dialog' : 'text';
+  const masterySource = 'all';
   const masteryResult = getMasteryResult(progress, lesson.id, masterySource);
 
   return (
