@@ -26,12 +26,13 @@ export default function RecallDeck({ lines, carry = { correct: 0, total: 0 }, on
   const [phase, setPhase] = useState<'front' | 'back' | 'shadow'>('front');
   const [shadowDone, setShadowDone] = useState(0);
   const [ready, setReady] = useState(false);
+  const [face, setFace] = useState<'ko' | 'zh'>(() => { try { return localStorage.getItem('chintalk-recall-face') === 'zh' ? 'zh' : 'ko'; } catch { return 'ko'; } });
+  const pickFace = (f: 'ko' | 'zh') => { setFace(f); try { localStorage.setItem('chintalk-recall-face', f); } catch { /* 저장 불가 */ } };
   const shadow = useShadowing(lines, stopSpeak);
-  const { canRecord, capture, startRecording, stopRecording, play, clips, playback } = shadow;
+  const { play } = shadow;
   const cur = currentCard(rs);
   const finished = useRef(false);
   const autoPlayed = useRef('');
-  const baseClip = useRef<string | undefined>(undefined);
 
   // 앞면: 대기 시간(2초 + 한자당 0.3초) 뒤 녹음 시작
   useEffect(() => {
@@ -47,13 +48,13 @@ export default function RecallDeck({ lines, carry = { correct: 0, total: 0 }, on
 
   // 뒷면·따라 말하기: 원문을 한 번 들려 준다
   useEffect(() => {
-    if (phase === 'front' || cur === null || capture) return;
+    if (phase === 'front' || cur === null) return;
     const key = `${phase}:${cur}:${rs.batch.length}:${rs.pile.length}:${shadowDone}`;
     if (autoPlayed.current === key) return;
     autoPlayed.current = key;
     void play(cur, 'original');
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, cur, capture, shadowDone]);
+  }, [phase, cur, shadowDone]);
 
   useEffect(() => {
     if (cur !== null || finished.current) return;
@@ -65,26 +66,24 @@ export default function RecallDeck({ lines, carry = { correct: 0, total: 0 }, on
   if (cur === null) return <p role="status" className="text-sm text-slate-600">카드를 모두 마쳤어요.</p>;
   const line = lines[cur];
   const v = line.verse;
-  const busy = !!capture;
+  const busy = false;
   const left = remainingCount(rs);
   const need = shadowCount(rs);
 
-  const flip = () => { if (capture) stopRecording(); setPhase('back'); };
+  const flip = () => setPhase('back');
   const advance = (next: typeof rs) => { shadow.stopPlayback(); setRs(next); setShadowDone(0); setPhase('front'); };
   const grade = (ok: boolean) => {
     if (!rs.inPile && !(cur in rs.first)) onGrade(line, ok);
     if (ok) return advance(gradeCard(rs, true));
-    baseClip.current = clips[cur]?.url;
     setShadowDone(0);
     setPhase('shadow');
   };
   const countShadow = () => {
     const n = shadowDone + 1;
-    baseClip.current = clip?.url;
     if (n >= need) advance(gradeCard(rs, false)); else setShadowDone(n);
   };
   const later = () => {
-    shadow.stopPlayback(); stopRecording();
+    shadow.stopPlayback();
     const remaining = remainingCards(rs);
     const acc = recallAccuracy(rs, carry);
     const redone = remaining.filter((i) => i in rs.first).length;
@@ -98,9 +97,6 @@ export default function RecallDeck({ lines, carry = { correct: 0, total: 0 }, on
       <div className="text-sm text-slate-600">{v.ko}</div>
     </div>
   );
-  const clip = clips[cur];
-  const fresh = true; // 녹음은 선택 사항: 마이크 없이도 진행
-  const playing = playback?.index === cur ? playback : null;
 
   return (
     <section className="space-y-3" aria-label="떠올리기 카드">
@@ -108,17 +104,24 @@ export default function RecallDeck({ lines, carry = { correct: 0, total: 0 }, on
         <span>{rs.inPile ? '추가 학습' : '떠올리기'} · 남은 카드 {left}장</span>
         {onLater && <button type="button" className="underline" onClick={later}>나중에 하기</button>}
       </div>
+      <div role="group" aria-label="앞면 표시" className="flex justify-center gap-2 text-xs">
+        {(['ko', 'zh'] as const).map((f) => (
+          <button key={f} type="button" aria-pressed={face === f} onClick={() => pickFace(f)} className={`rounded-full border px-3 py-1 font-semibold ${face === f ? 'bg-brand text-white border-brand' : 'bg-white border-slate-200'}`}>{f === 'ko' ? '한글 보고 말하기' : '한자 보고 뜻 떠올리기'}</button>
+        ))}
+      </div>
       {shadow.error && <p role="alert" className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl p-3">{shadow.error}</p>}
 
       <div className="rounded-2xl border border-slate-200 bg-white p-5 min-h-[11rem] grid place-items-center">
         {phase === 'front' && (
           <div className="text-center space-y-3 w-full">
             {line.speaker && <div className="text-xs text-slate-500">{line.speaker}</div>}
-            <div className="text-xl font-semibold leading-snug">{v.ko}</div>
+            {face === 'ko'
+              ? <div className="text-xl font-semibold leading-snug">{v.ko}</div>
+              : <div lang="zh-Hans" className="font-hanzi text-3xl leading-snug">{v.zh}</div>}
             <p className="text-sm text-slate-500" role="status">
-              {ready ? '소리 내어 말한 뒤 뒤집어 확인하세요.' : '한자를 떠올려 말할 준비를 해요…'}
+              {ready ? '떠올린 뒤 뒤집어 확인하세요.' : face === 'ko' ? '중국어를 떠올려 말해 보세요…' : '한글 뜻을 떠올려 보세요…'}
             </p>
-            <button type="button" className="inline-flex items-center gap-1.5 rounded-full bg-brand text-white font-semibold px-6 py-3 disabled:opacity-40" disabled={capture?.phase === 'requesting' || capture?.phase === 'saving'} onClick={flip}>
+            <button type="button" className="inline-flex items-center gap-1.5 rounded-full bg-brand text-white font-semibold px-6 py-3 disabled:opacity-40" onClick={flip}>
               <Icon name="refresh" size={16} /> {ready ? '뒤집기' : '준비됐어요 · 뒤집기'}
             </button>
           </div>
@@ -128,7 +131,7 @@ export default function RecallDeck({ lines, carry = { correct: 0, total: 0 }, on
           <div className="space-y-3 w-full">
             {answer}
             <p className="text-sm text-center text-brand font-semibold" role="status">
-              {capture?.phase === 'recording' ? '● 녹음 중 · 끝나면 녹음 끝' : `원문을 듣고 따라 말해요 (${shadowDone}/${need})`}
+              원문을 듣고 따라 말해요 ({shadowDone}/{need})
             </p>
           </div>
         )}
@@ -137,13 +140,6 @@ export default function RecallDeck({ lines, carry = { correct: 0, total: 0 }, on
       {phase !== 'front' && (
         <div className="flex flex-wrap items-center justify-center gap-2">
           <button type="button" className={btn} disabled={busy} onClick={() => void play(cur, 'original')}><Icon name="speaker" size={16} /> 원문 듣기</button>
-          {phase === 'shadow' && canRecord && (capture ? (
-            <button type="button" className={`${btn} border-red-500 text-red-700`} disabled={capture.phase === 'saving'} onClick={stopRecording}><Icon name="stop" size={16} /> 녹음 끝</button>
-          ) : (
-            <button type="button" className={btn} onClick={() => void startRecording(cur)}><Icon name="mic" size={16} /> {clip ? '다시 녹음' : '녹음'}</button>
-          ))}
-          <button type="button" className={btn} disabled={!clip || busy} onClick={() => void play(cur, 'mine')}><Icon name={playing?.mode === 'mine' ? 'stop' : 'play'} size={16} /> 내 소리</button>
-          <button type="button" className={btn} disabled={!clip || busy} onClick={() => void play(cur, 'compare')}><Icon name="repeat" size={16} /> 번갈아 듣기</button>
         </div>
       )}
 
@@ -154,11 +150,11 @@ export default function RecallDeck({ lines, carry = { correct: 0, total: 0 }, on
         </div>
       )}
       {phase === 'shadow' && (
-        <button type="button" disabled={busy || !fresh} onClick={countShadow} className="w-full rounded-2xl bg-brand text-white font-bold py-3 disabled:opacity-40">
+        <button type="button" onClick={countShadow} className="w-full rounded-2xl bg-brand text-white font-bold py-3 disabled:opacity-40">
           따라 했어요 ({shadowDone + 1}/{need})
         </button>
       )}
-      {phase === 'shadow' && <p className="text-xs text-slate-500">녹음은 선택이에요. 소리 내어 따라 말한 뒤 눌러 주세요.</p>}
+      {phase === 'shadow' && <p className="text-xs text-slate-500">소리 내어 따라 말한 뒤 눌러 주세요.</p>}
     </section>
   );
 }
