@@ -97,6 +97,17 @@ export default function HomePage() {
         </div>
       </section>
 
+      {lastLesson && (
+        <Link to={`/lesson/${lastLesson.id}`} className={`${card} flex items-center gap-3 p-4`}>
+          <Icon name="map" size={24} className="text-brand flex-none" />
+          <span className="flex-1 min-w-0">
+            <b className="block">이어서 학습하기 (경로)</b>
+            <span className="block text-sm text-slate-500 truncate">{lastLesson.no}. {lastLesson.titleZh} · {lastLesson.titleKo}</span>
+          </span>
+          <Icon name="chevronRight" size={16} className="text-slate-400" />
+        </Link>
+      )}
+
       <Link to={basic ? (rec ? `/lesson/${rec.id}` : '/path') : (rec ? `/daily?id=${rec.id}` : '/daily')} className={`${card} flex items-center gap-3 p-4`}>
         <Icon name="timer" size={24} className="text-brand flex-none" />
         <span className="flex-1 min-w-0">
@@ -112,17 +123,6 @@ export default function HomePage() {
           <span className="flex-1 min-w-0">
             <b className="block">심화 학습 복습 {dueCount}장</b>
             <span className="block text-sm text-slate-500">심화 학습에서 못한 문장을 다시 확인해요.</span>
-          </span>
-          <Icon name="chevronRight" size={16} className="text-slate-400" />
-        </Link>
-      )}
-
-      {lastLesson && (
-        <Link to={`/lesson/${lastLesson.id}${basic ? '' : '/mastery'}`} className={`${card} flex items-center gap-3 p-4`}>
-          <Icon name="target" size={24} className="text-brand flex-none" />
-          <span className="flex-1 min-w-0">
-            <b className="block">{basic ? '이어 학습하기 (교재)' : '이어 학습하기 (심화 학습)'}</b>
-            <span className="block text-sm text-slate-500 truncate">{lastLesson.no}. {lastLesson.titleZh} · {lastLesson.titleKo}</span>
           </span>
           <Icon name="chevronRight" size={16} className="text-slate-400" />
         </Link>
