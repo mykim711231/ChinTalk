@@ -9,7 +9,7 @@ import { useOfflineStore } from '../stores/useOfflineStore';
 import Icon from '../components/Icon';
 import LessonSelect from '../components/LessonSelect';
 import type { Lesson, LessonMeta, MasterySource, Verse } from '../types/lesson';
-import { studyLines, studySourceLabel, type StudyLine } from '../lib/studyContent';
+import { studyLines, studySourceLabel, studyTargetText, type StudyLine } from '../lib/studyContent';
 import HanText from '../components/HanText';
 import { alignChars } from '../lib/pinyin';
 import { Toggle } from '../components/ui';
@@ -130,7 +130,7 @@ function MasteryContent({ id, source }: { id: string; source: MasterySource }) {
 
       <LessonSelect label="과 선택" metas={metas} value={lesson.id} recId={recommendLesson(metas, prog, level)?.id} isDone={(id) => isUnlocked(prog, id)} onChange={(v) => { all.stop(); nav(`/lesson/${v}/mastery?source=${source}`); }} />
 
-      <p className="text-xs text-slate-500">{sourceLabel} · {lines.length}문장으로 4단계(듣고 이해 → 보고 떠올리기(한글/간체) → 따라 말하기)를 진행해요. 본문은 무작위, 회화는 순서대로 나와요.</p>
+      <p className="text-xs text-slate-500">{studyTargetText(source, lines.length)} · 3단계(듣고 이해 → 보고 떠올리기(한글/간체) → 따라 말하기)로 진행해요. 본문은 무작위, 회화는 순서대로 나와요.</p>
       {!lines.length && <p role="status" className="text-sm text-slate-500">등록된 {sourceLabel} 내용이 없어요. 다른 학습 내용을 선택해 주세요.</p>}
 
       <ol className="grid grid-cols-3 gap-1" aria-label="진행 단계">

@@ -9,7 +9,7 @@ import { useSettingsStore } from '../stores/useSettingsStore';
 import { useOfflineStore } from '../stores/useOfflineStore';
 import Icon from '../components/Icon';
 import type { Lesson, LessonMeta, StudySource, Verse } from '../types/lesson';
-import { studyLines, studySourceLabel } from '../lib/studyContent';
+import { studyLines, studyTargetText } from '../lib/studyContent';
 import { useStudySource } from '../hooks/useStudySource';
 import StudySourceSelector from '../components/StudySourceSelector';
 import HanText from '../components/HanText';
@@ -133,7 +133,7 @@ export default function DailyPage() {
         {state !== 'idle' && state !== 'done' && <span className="font-mono text-lg" aria-label="남은 시간">{mmss(remaining)}</span>}
       </div>
       <StudySourceSelector value={source} lesson={lesson} onChange={changeSource} />
-      <p className="text-xs text-slate-500">{studySourceLabel(source)} · {lines.length}문장{source === 'all' ? ' (본문 다음 회화 순서)' : ''}{state === 'running' || state === 'paused' ? ' · 대상을 바꾸면 처음부터 시작해요.' : ''}</p>
+      <p className="text-xs text-slate-500">{studyTargetText(source, lines.length)}{state === 'running' || state === 'paused' ? ' · 대상을 바꾸면 처음부터 시작해요.' : ''}</p>
       {lesson && !lines.length && <p role="status" className="text-sm text-slate-500">선택한 대상의 문장이 없어요. 다른 대상을 선택해 주세요.</p>}
 
       {state === 'idle' && (
