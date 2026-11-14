@@ -49,7 +49,7 @@ async function main() {
       await go('/study');
       assert.equal(await page.getByRole('complementary', { name: '기본 학습 모드 안내' }).count(), basic ? 1 : 0, name);
       assert.equal(await page.getByRole('link', { name: /^10분 데일리/ }).count(), basic ? 0 : 1, name);
-      assert.equal(await page.getByRole('link', { name: /^심화 학습/ }).count(), basic ? 0 : 1, name);
+      assert.equal(await page.getByRole('link', { name: /^심화 학습(?! 복습)/ }).count(), basic ? 0 : 1, name);
       if (basic) {
         await page.getByRole('link', { name: /^교재 학습/ }).waitFor();
         await page.getByRole('combobox', { name: '학습할 과' }).selectOption('v8-20');
