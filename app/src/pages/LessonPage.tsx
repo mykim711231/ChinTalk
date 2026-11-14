@@ -121,6 +121,9 @@ export default function LessonPage() {
         <span lang="zh-Latn-pinyin" className="reading-pinyin">{lesson.titlePinyin}</span> · {lesson.titleKo}
       </div>
       <div ref={follow.controlsRef} className={`flex flex-wrap items-center gap-2 mb-3 ${playing >= 0 ? 'playback-controls' : ''}`} aria-label="듣기 설정">
+        {!basic && <button type="button" disabled={!playableVerses.length} onClick={() => nav(`/daily?id=${lesson.id}`)} className="inline-flex items-center gap-1.5 rounded-full bg-brand text-white text-sm font-semibold px-3 py-1 disabled:opacity-40 disabled:cursor-not-allowed">
+          <Icon name="timer" size={14} /> 10분 데일리
+        </button>}
         {!basic && <button type="button" disabled={!canDisplay || !playableVerses.length} onClick={() => nav(`/lesson/${lesson.id}/mastery?source=${masterySource}`)} title={!canDisplay ? '본문·회화 탭에서 사용할 수 있어요.' : undefined} className="inline-flex items-center gap-1.5 rounded-full bg-brand text-white text-sm font-semibold px-3 py-1 disabled:opacity-40 disabled:cursor-not-allowed">
           <Icon name="target" size={14} /> 심화 학습{masteryResult ? ' (완료)' : ''}
         </button>}
