@@ -127,6 +127,7 @@ export default function DailyPage() {
 
   return (
     <main className="p-4 pb-28 space-y-4">
+      {lesson && <Link to={`/lesson/${lesson.id}`} className="text-sm text-slate-500">← {lesson.no}. {lesson.titleZh} 과 참고</Link>}
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold inline-flex items-center gap-2"><Icon name="timer" size={22} className="text-brand" /> 10분 데일리</h1>
         {state !== 'idle' && state !== 'done' && <span className="font-mono text-lg" aria-label="남은 시간">{mmss(remaining)}</span>}

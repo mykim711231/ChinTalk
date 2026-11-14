@@ -147,11 +147,9 @@ async function main() {
         assert.equal(spoken.length, withKo ? n * 2 : n);
         assert.ok(spoken.filter((_, i) => !withKo || i % 2 === 0).every(t => /[一-鿿]/.test(t)));
       };
-      await runReadOnly('문법', '문법 전체 듣기', false);
-      await runReadOnly('문법', '문법 + 한글 해설 듣기', true);
-      await runReadOnly('발음 함정', '함정 전체 듣기', false);
-      await runReadOnly('발음 함정', '함정 + 한글 해설 듣기', true);
-      for (const [tab, label] of [['본문', '본문 + 한글 듣기'], ['회화', '회화 + 한글 듣기']]) {
+      await runReadOnly('문법', '문법 전체 듣기', true);
+      await runReadOnly('발음 함정', '함정 전체 듣기', true);
+      for (const [tab, label] of [['본문', '본문 전체 듣기'], ['회화', '회화 전체 듣기']]) {
         await page.getByRole('button', { name: tab, exact: true }).click();
         await page.evaluate(() => { window.__spoken = []; });
         await page.getByRole('button', { name: label, exact: true }).click();
@@ -160,7 +158,7 @@ async function main() {
         await page.waitForFunction(() => window.__spoken.length === 2);
         const [zh, ko] = await page.evaluate(() => window.__spoken);
         assert.ok(/[一-鿿]/.test(zh) && /[가-힣]/.test(ko) && !/[一-鿿]/.test(ko), tab + ' 중국어 다음 한글이 나와야 한다');
-        await page.getByRole('button', { name: '한글 포함 듣기 멈추기', exact: true }).click();
+        await page.getByRole('button', { name: '멈추기', exact: true }).click();
       }
       await context.setOffline(true);
       await run('회화', dialog);

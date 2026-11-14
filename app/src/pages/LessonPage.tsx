@@ -127,17 +127,17 @@ export default function LessonPage() {
         {!basic && <button type="button" disabled={!canDisplay || !playableVerses.length} onClick={() => nav(`/lesson/${lesson.id}/mastery?source=${masterySource}`)} title={!canDisplay ? '본문·회화 탭에서 사용할 수 있어요.' : undefined} className="inline-flex items-center gap-1.5 rounded-full bg-brand text-white text-sm font-semibold px-3 py-1 disabled:opacity-40 disabled:cursor-not-allowed">
           <Icon name="target" size={14} /> 심화 학습{masteryResult ? ' (완료)' : ''}
         </button>}
-        <button type="button" disabled={!playableVerses.length} onClick={() => { if (ordinary) stopAll(); else { setKoMode(false); void playback.play('once'); } }} className="inline-flex items-center gap-1.5 rounded-full border border-brand text-brand text-sm font-semibold px-3 py-1 disabled:opacity-40 disabled:cursor-not-allowed">
-          <Icon name={ordinary ? 'stop' : 'play'} size={14} /> {ordinary ? (koMode ? '듣기 멈추기' : '멈추기') : tab === 'grammar' ? '문법 전체 듣기' : tab === 'trap' ? '함정 전체 듣기' : tab === 'text' ? '본문 전체 듣기' : tab === 'dialog' ? '회화 전체 듣기' : tab === 'vocab' ? '단어 전체 듣기' : '전체 듣기'}
-        </button>
-        {(readOnly || tab === 'text' || tab === 'dialog') && (
-          <button type="button" disabled={!playableVerses.length || (ordinary && !koMode)} aria-pressed={ordinary && koMode} onClick={() => { if (ordinary) stopAll(); else { setKoMode(true); void playback.play('once', { withKo: true }); } }} className="inline-flex items-center gap-1.5 rounded-full border border-brand text-brand text-sm font-semibold px-3 py-1 disabled:opacity-40 disabled:cursor-not-allowed">
-            <Icon name={ordinary && koMode ? 'stop' : 'play'} size={14} /> {ordinary && koMode ? '한글 포함 듣기 멈추기' : tab === 'grammar' ? '문법 + 한글 해설 듣기' : tab === 'trap' ? '함정 + 한글 해설 듣기' : tab === 'text' ? '본문 + 한글 듣기' : '회화 + 한글 듣기'}
-          </button>
-        )}
         {!readOnly && <button type="button" disabled={!playableVerses.length} aria-pressed={learning} aria-describedby="learning-listening-guide" onClick={() => { if (learning) stopAll(); else void playback.play('learning'); }} className="inline-flex items-center gap-1.5 rounded-full border border-brand text-brand text-sm font-semibold px-3 py-1 disabled:opacity-40 disabled:cursor-not-allowed">
           <Icon name={learning ? 'stop' : 'repeat'} size={14} /> {learning ? '학습 듣기 멈추기' : tab === 'text' ? `본문 ${passCount}회 학습 듣기` : tab === 'dialog' ? `회화 ${passCount}회 학습 듣기` : tab === 'vocab' ? `단어 ${passCount}회 학습 듣기` : '5회 학습 듣기'}
         </button>}
+        {!(readOnly || tab === 'text' || tab === 'dialog') && <button type="button" disabled={!playableVerses.length} onClick={() => { if (ordinary) stopAll(); else { setKoMode(false); void playback.play('once'); } }} className="inline-flex items-center gap-1.5 rounded-full border border-brand text-brand text-sm font-semibold px-3 py-1 disabled:opacity-40 disabled:cursor-not-allowed">
+          <Icon name={ordinary ? 'stop' : 'play'} size={14} /> {ordinary ? (koMode ? '듣기 멈추기' : '멈추기') : tab === 'vocab' ? '단어 전체 듣기' : '전체 듣기'}
+        </button>}
+        {(readOnly || tab === 'text' || tab === 'dialog') && (
+          <button type="button" disabled={!playableVerses.length || (ordinary && !koMode)} aria-pressed={ordinary && koMode} onClick={() => { if (ordinary) stopAll(); else { setKoMode(true); void playback.play('once', { withKo: true }); } }} className="inline-flex items-center gap-1.5 rounded-full border border-brand text-brand text-sm font-semibold px-3 py-1 disabled:opacity-40 disabled:cursor-not-allowed">
+            <Icon name={ordinary && koMode ? 'stop' : 'play'} size={14} /> {ordinary && koMode ? '멈추기' : tab === 'grammar' ? '문법 전체 듣기' : tab === 'trap' ? '함정 전체 듣기' : tab === 'text' ? '본문 전체 듣기' : '회화 전체 듣기'}
+          </button>
+        )}
         {playing >= 0 && <span role="status" className="text-xs text-slate-500">{learning ? `${pass + 1}/${passCount}회 · ${playback.passLabel} · ` : '재생 중 '}{(learning ? playback.step : playing) + 1}/{playableVerses.length}{tab === 'vocab' ? '단어' : tab === 'trap' ? '항목' : '문장'}</span>}
       </div>
       {playback.completed && <p role="status" className="text-sm text-brand mb-2">{passCount}회 학습 듣기를 마쳤어요. 기존 표시 설정으로 돌아왔어요.</p>}

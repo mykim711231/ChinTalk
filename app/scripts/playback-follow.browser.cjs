@@ -107,7 +107,13 @@ async function main() {
       await page.getByRole('button', { name: tab, exact: true }).click();
       await page.getByRole('button', { name: `${tab} 전체 듣기`, exact: true }).click();
       await visible(0);
-      for (let i = 1; i < 8; i++) await advance(i);
+      // 한글 포함 재생: 중국어 다음 한글이 나오므로 문장마다 종료 콜백이 두 번 필요하다.
+      for (let i = 1; i < 8; i++) {
+        await page.evaluate(() => window.__utterance.onend?.());
+        await page.waitForTimeout(450);
+        await page.evaluate(() => window.__utterance.onend?.());
+        await visible(i);
+      }
       await current().getByRole('button', { name: '듣기', exact: true }).click();
       assert.equal(await current().count(), 0);
       const n = await page.evaluate(() => window.__spoken.length);
