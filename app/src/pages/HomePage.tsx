@@ -137,7 +137,7 @@ export default function HomePage() {
         <Link to="/review" className={`${card} flex items-center gap-3 p-4`}>
           <Icon name="repeat" size={24} className="text-brand flex-none" />
           <span className="flex-1 min-w-0">
-            <b className="block">오늘의 복습 {dueCount}장</b>
+            <b className="block">복습 {dueCount}장</b>
             <span className="block text-sm text-slate-500">심화 학습에서 못한 문장을 다시 확인해요.</span>
           </span>
           <Icon name="chevronRight" size={16} className="text-slate-400" />

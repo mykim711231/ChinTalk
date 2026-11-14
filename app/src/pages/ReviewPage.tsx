@@ -6,11 +6,11 @@ import RecallDeck from '../components/RecallDeck';
 import type { StudyLine } from '../lib/studyContent';
 import type { Verse } from '../types/lesson';
 
-/** 못함으로 남긴 문장을 1일 · 3일 · 7일 간격으로 다시 확인한다. */
+/** 못함으로 남긴 문장을 언제든 다시 확인한다. 맞히면 익힌 것으로 빠진다. */
 export default function ReviewPage() {
   const cards = useReviewStore((s) => s.cards);
   const grade = useReviewStore((s) => s.grade);
-  // 시작 시점의 오늘 복습 대상만 고정한다(진행 중 저장소가 바뀌어도 덱이 흔들리지 않게).
+  // 시작 시점의 복습 대상만 고정한다(진행 중 저장소가 바뀌어도 덱이 흔들리지 않게).
   const due = useMemo(() => dueCards(cards), []); // eslint-disable-line react-hooks/exhaustive-deps
   const [lines, setLines] = useState<(StudyLine & { lessonId: string })[] | null>(null);
   const [done, setDone] = useState(false);
@@ -34,17 +34,15 @@ export default function ReviewPage() {
     return () => { active = false; };
   }, [due]);
 
-  const later = Object.values(cards).filter((c) => !due.some((d) => d.lessonId === c.lessonId && d.zh === c.zh));
-
   return (
     <main className="p-4 pb-28 space-y-4">
       <Link to="/study" className="text-sm text-slate-500">← 학습</Link>
       <h1 className="text-xl font-bold">복습</h1>
-      <p className="text-xs text-slate-500">심화 학습에서 못한 문장이 1일 · 3일 · 7일 뒤에 다시 나와요. 7일 단계까지 맞히면 졸업해요.</p>
+      <p className="text-xs text-slate-500">심화 학습에서 못한 문장을 언제든 복습할 수 있어요. 맞히면 익힌 것으로 목록에서 빠지고, 못하면 남아요.</p>
       {lines === null && <p className="text-sm">불러오는 중…</p>}
       {lines && !lines.length && (
         <p role="status" className="rounded-xl border border-slate-200 bg-white p-4 text-sm">
-          오늘 복습할 카드가 없어요.{later.length ? ` 앞으로 ${later.length}장이 예정되어 있어요.` : ' 심화 학습에서 못한 문장이 생기면 여기에 나타나요.'}
+          복습할 카드가 없어요. 심화 학습에서 못한 문장이 생기면 여기에 나타나요.
         </p>
       )}
       {lines && lines.length > 0 && !done && (
@@ -54,7 +52,7 @@ export default function ReviewPage() {
           onFinish={() => setDone(true)}
         />
       )}
-      {done && <p role="status" className="rounded-xl border border-green-300 bg-green-50 p-4 text-sm">오늘 복습을 마쳤어요. 못한 카드는 내일 다시 나와요.</p>}
+      {done && <p role="status" className="rounded-xl border border-green-300 bg-green-50 p-4 text-sm">복습을 마쳤어요. 못한 카드는 목록에 남아 있어요.</p>}
     </main>
   );
 }

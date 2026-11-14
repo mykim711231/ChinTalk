@@ -1,26 +1,16 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { addDays, nextCard, isDue, SRS_DAYS, type ReviewCard } from '../src/lib/srs';
+import { nextCard, type ReviewCard } from '../src/lib/srs';
 import { recallOrder, BATCH, currentCard, gradeCard, masteryScore, recallAccuracy, remainingCards, shadowCount, startRecall } from '../src/lib/recall';
 import { buildQuiz } from '../src/lib/quiz';
 import type { StudyLine } from '../src/lib/studyContent';
 
 const line = (n: number): StudyLine => ({ source: 'text', verse: { zh: `句${n}`, pinyin: `p${n}`, ko: `뜻${n}`, chunks: [] } });
 
-test('SRS: 1일 → 3일 → 7일 후 졸업, 틀리면 처음으로', () => {
-  const base = new Date(2026, 0, 1);
-  const card: ReviewCard = { lessonId: 'v1-01', zh: '句', box: 0, due: addDays(1, base) };
-  assert.equal(card.due, '2026-01-02');
-  const b1 = nextCard(card, true, base)!;
-  assert.equal(b1.box, 1); assert.equal(b1.due, '2026-01-04');
-  const b2 = nextCard(b1, true, base)!;
-  assert.equal(b2.box, 2); assert.equal(b2.due, '2026-01-08');
-  assert.equal(nextCard(b2, true, base), null);
-  const back = nextCard(b2, false, base)!;
-  assert.equal(back.box, 0); assert.equal(back.due, '2026-01-02');
-  assert.deepEqual([...SRS_DAYS], [1, 3, 7]);
-  assert.equal(isDue(card, '2026-01-01'), false);
-  assert.equal(isDue(card, '2026-01-02'), true);
+test('복습: 맞히면 졸업, 틀리면 그대로 남는다(날짜 제한 없음)', () => {
+  const card: ReviewCard = { lessonId: 'v1-01', zh: '句' };
+  assert.equal(nextCard(card, true), null);
+  assert.deepEqual(nextCard(card, false), card);
 });
 
 test('떠올리기: 첫 시도 못함은 더미로, 더미가 빌 때까지 반복', () => {

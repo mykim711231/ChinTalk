@@ -201,7 +201,7 @@ function MasteryContent({ id, source }: { id: string; source: MasterySource }) {
               <div role="status" className="rounded-xl border border-green-300 bg-green-50 p-4 text-sm space-y-2">
                 <p className="text-lg font-bold">{faceLabel} 완료 · 첫 시도 {res.correct}/{res.total}</p>
                 {score !== null && <p>심화 학습 점수 <b>{score}점</b>{score >= 80 ? ' · 마스터' : ''} (듣고 이해 {quiz ? `${quiz.correct}/${quiz.total}` : '건너뜀'} + 떠올리기 첫 시도). 이 과의 음원이 <b>편하게 듣기</b>에 해금되었어요.</p>}
-                <p>못한 문장은 빨강 북마크에 담고, 1일 · 3일 · 7일 뒤에 <Link to="/review" className="underline font-semibold">복습</Link>으로 다시 나와요.</p>
+                <p>못한 문장은 빨강 북마크에 담고, 언제든 <Link to="/review" className="underline font-semibold">복습</Link>에서 다시 확인할 수 있어요.</p>
                 <div className="flex flex-wrap gap-2">
                   
                   {face === 'ko' && !decks.zh && <button type="button" className={btn} onClick={() => setFace('zh')}>간체 보고 떠올리기 <Icon name="chevronRight" size={16} /></button>}

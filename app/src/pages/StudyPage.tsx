@@ -66,8 +66,8 @@ export default function StudyPage() {
       <Link to="/review" className={card}>
         <Icon name="repeat" size={26} className="text-brand flex-none" />
         <span className="min-w-0 flex-1">
-          <b className="block">복습{dueCount ? ` (${dueCount}장 도착)` : ''}</b>
-          <span className="block text-xs text-slate-500">{dueCount ? '심화 학습에서 못한 문장을 다시 확인해요.' : '못한 문장이 1일 · 3일 · 7일 뒤에 다시 나와요.'}</span>
+          <b className="block">복습{dueCount ? ` (${dueCount}장)` : ''}</b>
+          <span className="block text-xs text-slate-500">{dueCount ? '심화 학습에서 못한 문장을 다시 확인해요.' : '못한 문장이 생기면 여기서 언제든 복습해요.'}</span>
         </span>
         <Icon name="arrowRight" size={18} className="text-slate-400" />
       </Link>
