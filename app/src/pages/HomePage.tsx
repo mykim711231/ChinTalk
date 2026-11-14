@@ -1,10 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { loadMeta, loadVol, LEVEL_NAMES } from '../lib/contentLoader';
-import { dayIndex, recommendLesson } from '../lib/recommend';
-import { speak } from '../lib/tts';
+import { loadMeta, LEVEL_NAMES } from '../lib/contentLoader';
+import { recommendLesson } from '../lib/recommend';
 import { useHighlightStore } from '../stores/useHighlightStore';
-import type { Verse } from '../types/lesson';
 import { isInAppBrowser, isIOS, isStandalone } from '../lib/inapp';
 import { calcStreak, isUnlocked, useProgressStore } from '../stores/useProgressStore';
 import { useSettingsStore } from '../stores/useSettingsStore';
@@ -28,18 +26,9 @@ export default function HomePage() {
   const { done, last } = prog;
   const level = useSettingsStore((s) => s.level);
   const marks = useHighlightStore((s) => s.marks);
-  const [sod, setSod] = useState<{ verse: Verse; title: string } | null>(null);
   useEffect(() => {
     loadMeta().then(setMeta);
   }, []);
-  useEffect(() => {
-    // 오늘의 한 마디: 날짜 기준 고정 선택 (선택 레벨의 첫 권)
-    void loadVol(level * 2 - 1).then((ls) => {
-      const l = ls[dayIndex(ls.length)];
-      const v = l?.text[dayIndex(l.text.length)];
-      if (l && v) setSod({ verse: v, title: `Vol.${l.vol} · ${l.no}과 ${l.titleZh}` });
-    }).catch(() => undefined);
-  }, [level]);
   const streak = calcStreak(prog.days);
   const rec = recommendLesson(meta, prog, level);
   const unlockedCount = basic ? meta.length : meta.filter((m) => isUnlocked(prog, m.id)).length;
@@ -107,22 +96,6 @@ export default function HomePage() {
           </button>
         </div>
       </section>
-
-      {sod && (
-        <section className={`${card} p-4`} aria-label="오늘의 한 마디">
-          <div className="text-xs text-slate-500">오늘의 한 마디 · {sod.title}</div>
-          <div className="flex items-start gap-3 mt-1">
-            <div className="flex-1 min-w-0">
-              <div lang="zh-Hans" className="reading-zh">{sod.verse.zh}</div>
-              <div lang="zh-Latn-pinyin" className="reading-pinyin">{sod.verse.pinyin}</div>
-              <div className="text-sm">{sod.verse.ko}</div>
-            </div>
-            <button type="button" aria-label="오늘의 한 마디 듣기" onClick={() => void speak(sod.verse.zh)} className="flex-none w-10 h-10 rounded-full bg-brand text-white grid place-items-center">
-              <Icon name="speaker" size={18} />
-            </button>
-          </div>
-        </section>
-      )}
 
       <Link to={basic ? (rec ? `/lesson/${rec.id}` : '/path') : (rec ? `/daily?id=${rec.id}` : '/daily')} className={`${card} flex items-center gap-3 p-4`}>
         <Icon name="timer" size={24} className="text-brand flex-none" />
