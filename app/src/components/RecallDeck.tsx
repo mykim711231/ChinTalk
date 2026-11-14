@@ -32,6 +32,17 @@ export default function RecallDeck({ lines, face, carry = { correct: 0, total: 0
   const { play } = shadow;
   const cur = currentCard(rs);
   const finished = useRef(false);
+  const gradeRef = useRef<(ok: boolean) => void>(() => {});
+  const [auto, setAuto] = useState(() => { try { return localStorage.getItem('chintalk-recall-auto') !== 'off'; } catch { return true; } });
+  const toggleAuto = () => { const v = !auto; setAuto(v); try { localStorage.setItem('chintalk-recall-auto', v ? 'on' : 'off'); } catch { /* 저장 불가 */ } };
+  // 확인 화면에서 응답이 없으면 맞음으로 자동 진행 (대기: 6초 + 한자당 0.3초)
+  const waitMs = cur === null ? 0 : 6000 + 300 * hanziCount(lines[cur].verse.zh);
+  useEffect(() => {
+    if (phase !== 'back' || cur === null || !auto) return;
+    const t = window.setTimeout(() => gradeRef.current(true), waitMs);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, cur, rs, auto]);
   const autoPlayed = useRef('');
 
   // 앞면: 대기 시간(2초 + 한자당 0.3초) 뒤 녹음 시작
@@ -78,6 +89,7 @@ export default function RecallDeck({ lines, face, carry = { correct: 0, total: 0
     setShadowDone(0);
     setPhase('shadow');
   };
+  gradeRef.current = grade;
   const countShadow = () => {
     const n = shadowDone + 1;
     if (n >= need) advance(gradeCard(rs, false)); else setShadowDone(n);
@@ -138,6 +150,12 @@ export default function RecallDeck({ lines, face, carry = { correct: 0, total: 0
         </div>
       )}
 
+      {phase === 'back' && (
+        <p className="text-xs text-center text-slate-500" role="status">
+          {auto ? `${Math.round(waitMs / 1000)}초 안에 누르지 않으면 맞음으로 넘어가요. ` : ''}
+          <button type="button" className="underline" onClick={toggleAuto}>{auto ? '자동 넘김 끄기' : '자동 넘김 켜기'}</button>
+        </p>
+      )}
       {phase === 'back' && (
         <div className="grid grid-cols-2 gap-3 pt-1">
           <button type="button" disabled={busy} onClick={() => grade(false)} className="rounded-2xl border-2 border-red-300 bg-red-50 text-red-700 font-bold text-lg py-4 disabled:opacity-40">못함</button>

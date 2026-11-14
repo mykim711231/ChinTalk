@@ -88,6 +88,7 @@ function MasteryContent({ id, source, onSourceChange }: {
     return parts.length ? { correct: parts.reduce((n, x) => n + x.correct, 0), total: parts.reduce((n, x) => n + x.total, 0) } : null;
   }, [quizRes]);
   const [face, setFace] = useState<Face>('ko');
+  const [quizKey, setQuizKey] = useState(0);
   const [decks, setDecks] = useState<{ ko: DeckResult | null; zh: DeckResult | null }>({ ko: null, zh: null });
   const [deckKey, setDeckKey] = useState({ ko: 0, zh: 0 });
   const prog = useProgressStore();
@@ -111,6 +112,16 @@ function MasteryContent({ id, source, onSourceChange }: {
   }, [id, setLast]);
 
   const go = (n: number) => { all.stop(); shadow.stopPlayback(); shadow.stopRecording(); setStage(n); };
+
+  const restart = () => {
+    all.stop(); shadow.stopPlayback(); shadow.stopRecording();
+    if (stage === 0) { setQuizRes({ ko: null, zh: null }); setQuizKey((k) => k + 1); }
+    else if (stage === 1) {
+      setPending(face === 'ko' ? kKey : zKey, null);
+      setDecks((d) => ({ ...d, [face]: null }));
+      setDeckKey((k) => ({ ...k, [face]: k[face] + 1 }));
+    } else window.scrollTo({ top: 0 });
+  };
 
   if (lesson === undefined) return <main className="p-4">불러오는 중…</main>;
   if (lesson === null) return <main className="p-4">과를 찾을 수 없습니다. <Link to="/path" className="text-brand">목록으로</Link></main>;
@@ -162,7 +173,7 @@ function MasteryContent({ id, source, onSourceChange }: {
         {all.playing >= 0 && <span role="status" className="text-xs text-slate-500">재생 중 {all.playing + 1}/{lines.length}문장</span>}
       </div>}
 
-      {stage === 0 && <Quiz key={`${lesson.id}:${source}`} lines={lines} results={quizRes} onDone={(face, r, wrong) => {
+      {stage === 0 && <Quiz key={`${lesson.id}:${source}:${quizKey}`} lines={lines} results={quizRes} onDone={(face, r, wrong) => {
         setQuizRes((q) => ({ ...q, [face]: r }));
         for (const i of wrong) addRed(lines[i].verse.chunks.map((c) => c.id));
       }} />}
@@ -236,6 +247,9 @@ function MasteryContent({ id, source, onSourceChange }: {
       <div className="flex justify-between pt-2">
         <button type="button" className={btn} disabled={stage === 0} onClick={() => go(stage - 1)}>
           <Icon name="chevronLeft" size={16} /> 이전 단계
+        </button>
+        <button type="button" className={btn} disabled={!lines.length} onClick={restart}>
+          <Icon name="refresh" size={16} /> 다시 하기
         </button>
         <button type="button" className={btn} disabled={stage === 2 || !lines.length} onClick={() => go(stage + 1)}>
           다음 단계 <Icon name="chevronRight" size={16} />
