@@ -213,7 +213,7 @@ function MasteryContent({ id, source, onSourceChange }: {
                 {score !== null && <p>심화 학습 점수 <b>{score}점</b>{score >= 80 ? ' · 마스터' : ''} (듣고 이해 {quiz ? `${quiz.correct}/${quiz.total}` : '건너뜀'} + 떠올리기 첫 시도). 이 과의 음원이 <b>편하게 듣기</b>에 해금되었어요.</p>}
                 <p>못한 문장은 빨강 북마크에 담고, 1일 · 3일 · 7일 뒤에 <Link to="/review" className="underline font-semibold">복습</Link>으로 다시 나와요.</p>
                 <div className="flex flex-wrap gap-2">
-                  <button type="button" className={btnBrand} onClick={() => { setDecks({ ...decks, [face]: null }); setDeckKey({ ...deckKey, [face]: deckKey[face] + 1 }); }}>다시 도전</button>
+                  
                   {face === 'ko' && !decks.zh && <button type="button" className={btn} onClick={() => setFace('zh')}>간체 보고 떠올리기 <Icon name="chevronRight" size={16} /></button>}
                   {(face === 'zh' || decks.zh) && <button type="button" className={btn} onClick={() => go(2)}>따라 말하기 <Icon name="chevronRight" size={16} /></button>}
                   {both && <Link to={`/passive?source=${source}`} className={btn}><Icon name="headphones" size={16} /> 편하게 듣기</Link>}
@@ -248,9 +248,11 @@ function MasteryContent({ id, source, onSourceChange }: {
         <button type="button" className={btn} disabled={stage === 0} onClick={() => go(stage - 1)}>
           <Icon name="chevronLeft" size={16} /> 이전 단계
         </button>
-        <button type="button" className={btn} disabled={!lines.length} onClick={restart}>
-          <Icon name="refresh" size={16} /> 다시 하기
-        </button>
+        {((stage === 0 && (quizRes.ko || quizRes.zh)) || (stage === 1 && decks[face])) && (
+          <button type="button" className={btnBrand} onClick={restart}>
+            <Icon name="refresh" size={16} /> 다시 하기
+          </button>
+        )}
         <button type="button" className={btn} disabled={stage === 2 || !lines.length} onClick={() => go(stage + 1)}>
           다음 단계 <Icon name="chevronRight" size={16} />
         </button>
