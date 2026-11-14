@@ -9,16 +9,22 @@ export type ListeningPass = { label: string; display: CaptionDisplay; leadMs?: n
 
 const D = (showZh: boolean, showPinyin: boolean, showKo: boolean): CaptionDisplay => ({ showZh, showPinyin, showKo });
 
-/** 이해 → 청해 → 읽기(힌트 줄이기) → 따라 말하기 → 떠올리기(한글 먼저, 순서 섞음). 본문·회화. */
+/** 이해(뜻 먼저 2회) → 청해 → 힌트 줄이기 → 따라 말하기 → 먼저 읽기 → 떠올리기(한글 먼저). 본문. */
 export const LISTENING_PASSES: ListeningPass[] = [
+  { label: '모두 표시', display: D(true, true, true) },
   { label: '모두 표시', display: D(true, true, true) },
   { label: '소리만 (화면 가림)', display: D(false, false, false) },
   { label: '한자·병음 (뜻 숨김)', display: D(true, true, false) },
-  { label: '병음만', display: D(false, true, false) },
-  { label: '한자만', display: D(true, false, false) },
-  { label: '한자·병음 (따라 말하기)', display: D(true, true, false), shadow: true },
-  { label: '한글만 (떠올린 뒤 확인)', display: D(false, false, true), leadMs: 2000, leadPerChar: 300, shuffle: true },
+  { label: '한자만 (따라 말하기)', display: D(true, false, false), shadow: true },
+  { label: '소리만 (따라 말하기)', display: D(false, false, false), shadow: true },
+  { label: '한자만 (먼저 읽고 확인)', display: D(true, false, false), leadMs: 1000, leadPerChar: 250 },
+  { label: '한글만 (떠올린 뒤 확인)', display: D(false, false, true), leadMs: 2000, leadPerChar: 300 },
+  { label: '모두 표시 (확인)', display: D(true, true, true) },
+  { label: '한글만 (순서 섞음)', display: D(false, false, true), leadMs: 2000, leadPerChar: 300, shuffle: true },
 ];
+
+/** 회화는 앞 대사가 단서이므로 순서를 섞지 않는다. */
+export const DIALOG_PASSES: ListeningPass[] = LISTENING_PASSES.map((p) => p.shuffle ? { ...p, label: '한글만 (대화 순서대로)', shuffle: false } : p);
 
 /** 단어는 짧아서 청해·순서 섞기 없이 5회: 4회에 따라 말하기 간격, 5회는 한글을 보고 떠올림. */
 export const VOCAB_PASSES: ListeningPass[] = [
@@ -29,5 +35,5 @@ export const VOCAB_PASSES: ListeningPass[] = [
   { label: '한글만 (떠올린 뒤 확인)', display: D(false, false, true), leadMs: 1500, leadPerChar: 200 },
 ];
 
-export const LISTENING_GUIDE = `${LISTENING_PASSES.length}회 학습 듣기: 모두 표시 → 소리만 → 한자·병음 → 병음만 → 한자만 → 따라 말하기(재생한 시간만큼 쉬며 따라 읽기) → 한글만(뜻을 보고 중국어를 떠올린 뒤 음성 확인, 순서 섞임).`;
+export const LISTENING_GUIDE = `${LISTENING_PASSES.length}회 학습 듣기: 모두 표시 ×2 → 소리만 → 한자·병음 → 한자만(따라 말하기) → 소리만(따라 말하기) → 한자만(먼저 읽고 확인) → 한글만(떠올린 뒤 확인) → 모두 표시 → 한글만(순서 섞음, 회화는 대화 순서대로).`;
 export const VOCAB_GUIDE = `${VOCAB_PASSES.length}회 학습 듣기: 모두 표시 → 한자·병음 → 병음만 → 한자만(따라 말하기) → 한글만(뜻을 보고 중국어를 떠올린 뒤 음성 확인).`;

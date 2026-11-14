@@ -11,7 +11,7 @@ import { usePlaybackFollow } from '../hooks/usePlaybackFollow';
 import { isBasicMode } from '../lib/compatibility';
 import { useLessonPlayback } from '../hooks/useLessonPlayback';
 import { grammarItems, trapItems } from '../lib/readAloud';
-import { LISTENING_GUIDE, LISTENING_PASSES, VOCAB_GUIDE, VOCAB_PASSES } from '../lib/learningListening';
+import { DIALOG_PASSES, LISTENING_GUIDE, LISTENING_PASSES, VOCAB_GUIDE, VOCAB_PASSES } from '../lib/learningListening';
 
 type Tab = 'text' | 'vocab' | 'grammar' | 'dialog' | 'trap';
 const TABS: [Tab, string][] = [
@@ -41,7 +41,7 @@ export default function LessonPage() {
     : tab === 'dialog' ? lesson?.dialogs.flatMap((d) => d.turns.map((t) => t.verse)) ?? []
     : tab === 'vocab' ? (lesson?.vocab ?? []).map((w): Verse => ({ zh: w.zh, pinyin: w.pinyin, ko: w.ko, chunks: [] }))
     : readItems.map((r) => r.verse);
-  const passList = tab === 'vocab' ? VOCAB_PASSES : LISTENING_PASSES;
+  const passList = tab === 'vocab' ? VOCAB_PASSES : tab === 'dialog' ? DIALOG_PASSES : LISTENING_PASSES;
   const passCount = passList.length;
   const playback = useLessonPlayback(playableVerses, `${id}:${tab}`, passList);
   const { playing, pass, display, stop: stopAll } = playback;

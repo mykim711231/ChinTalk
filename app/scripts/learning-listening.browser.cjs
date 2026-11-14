@@ -14,7 +14,8 @@ lessons[2].text = []; lessons[2].dialogs = [];
 const base = 'http://chintalk.test/ChinTalk/';
 const mime = { '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.html': 'text/html', '.svg': 'image/svg+xml', '.png': 'image/png' };
 // [label, 한자, 병음, 한글, shuffle, shadow]
-const passes = [['모두 표시', true, true, true], ['소리만 (화면 가림)', false, false, false], ['한자·병음 (뜻 숨김)', true, true, false], ['병음만', false, true, false], ['한자만', true, false, false], ['한자·병음 (따라 말하기)', true, true, false, false, true], ['한글만 (떠올린 뒤 확인)', false, false, true, true]];
+const fullPasses = [['모두 표시', true, true, true], ['모두 표시', true, true, true], ['소리만 (화면 가림)', false, false, false], ['한자·병음 (뜻 숨김)', true, true, false], ['한자만 (따라 말하기)', true, false, false], ['소리만 (따라 말하기)', false, false, false], ['한자만 (먼저 읽고 확인)', true, false, false], ['한글만 (떠올린 뒤 확인)', false, false, true], ['모두 표시 (확인)', true, true, true], ['한글만 (순서 섞음)', false, false, true, true]];
+const dialogPasses = fullPasses.map(p => p[4] ? ['한글만 (대화 순서대로)', false, false, true] : p);
 const vocabPasses = [['모두 표시', true, true, true], ['한자·병음 (뜻 숨김)', true, true, false], ['병음만', false, true, false], ['한자만 (따라 말하기)', true, false, false], ['한글만 (떠올린 뒤 확인)', false, false, true]];
 const hanzi = (t) => (t.match(/[一-鿿]/g) || []).length;
 const leadsOf = (list, base, per) => list.map(v => base + per * hanzi(v.zh));
@@ -54,7 +55,7 @@ async function main() {
       const page = await context.newPage(); page.setDefaultTimeout(15000);
       const errors = []; page.on('pageerror', e => errors.push(e.message));
       await page.goto(`${base}#/lesson/v1-02`);
-      await page.getByRole('button', { name: '본문 7회 학습 듣기', exact: true }).waitFor();
+      await page.getByRole('button', { name: '본문 10회 학습 듣기', exact: true }).waitFor();
       const settings = await page.evaluate(() => localStorage.getItem('chintalk-settings'));
       const current = () => page.locator('[data-playback-line][aria-current=true]');
       const restored = async () => {
@@ -67,15 +68,16 @@ async function main() {
       };
       const delaysOf = (expected) => page.evaluate((exp) => exp.filter((ms) => window.__delays.includes(ms)).length, expected);
       const run = async (tab, verses) => {
+        const passes = tab === '회화' ? dialogPasses : fullPasses;
         await page.getByRole('button', { name: tab, exact: true }).click();
         await page.evaluate(() => { window.__spoken = []; window.__delays = []; });
-        await page.getByRole('button', { name: `${tab} 7회 학습 듣기`, exact: true }).click();
+        await page.getByRole('button', { name: `${tab} 10회 학습 듣기`, exact: true }).click();
         const expected = [];
         for (let pass = 0; pass < passes.length; pass++) {
           const ks = [];
           for (let i = 0; i < verses.length; i++) {
             await page.waitForFunction(n => window.__spoken.length === n, pass * verses.length + i + 1);
-            await page.getByRole('status').filter({ hasText: `${pass + 1}/7회 · ${passes[pass][0]} · ${i + 1}/${verses.length}문장` }).waitFor();
+            await page.getByRole('status').filter({ hasText: `${pass + 1}/10회 · ${passes[pass][0]} · ${i + 1}/${verses.length}문장` }).waitFor();
             const k = Number(await current().getAttribute('data-playback-line')); ks.push(k);
             if (!passes[pass][4]) assert.equal(k, i);
             assert.equal((await page.evaluate(() => window.__spoken)).at(-1), verses[k].zh);
@@ -97,9 +99,10 @@ async function main() {
           if (passes[pass][4] && verses.length > 1) assert.notDeepEqual(ks, verses.map((_, i) => i)); // 섞인 순서
           expected.push(...ks.map(k => verses[k].zh));
         }
-        await page.getByText('7회 학습 듣기를 마쳤어요. 기존 표시 설정으로 돌아왔어요.', { exact: true }).waitFor();
+        await page.getByText('10회 학습 듣기를 마쳤어요. 기존 표시 설정으로 돌아왔어요.', { exact: true }).waitFor();
         assert.deepEqual(await page.evaluate(() => window.__spoken), expected);
-        assert.equal(await delaysOf(leadsOf(verses, 2000, 300)) >= verses.length, true); // 한글만 회차에만 재생 전 대기(문장 길이 비례)
+        assert.equal(await delaysOf(leadsOf(verses, 2000, 300)) >= verses.length, true); // 한글만 회차 재생 전 대기(문장 길이 비례)
+        assert.equal(await delaysOf(leadsOf(verses, 1000, 250)) >= verses.length, true); // 한자만 먼저 읽기 회차 대기
         await restored();
       };
       const runVocab = async () => {
@@ -162,11 +165,11 @@ async function main() {
       await context.setOffline(true);
       await run('회화', dialog);
       await context.setOffline(false);
-      console.log(`PASS: ${basic ? 'basic mode' : 'full mode'}: whole-body and multi-section dialogue repeat exactly seven times (five for vocab), captions match each pass, follow at 320px, offline device voice, original settings preserved`);
+      console.log(`PASS: ${basic ? 'basic mode' : 'full mode'}: whole-body and multi-section dialogue repeat exactly ten times (five for vocab), captions match each pass, follow at 320px, offline device voice, original settings preserved`);
 
       // 새 재생으로 교체한 뒤 이전 음성의 종료 콜백이 와도 새 큐·표시를 지우면 안 된다.
       await page.getByRole('button', { name: '본문', exact: true }).click();
-      await page.getByRole('button', { name: '본문 7회 학습 듣기', exact: true }).click();
+      await page.getByRole('button', { name: '본문 10회 학습 듣기', exact: true }).click();
       await page.evaluate(() => { window.__old = window.__utterance; });
       await page.getByRole('button', { name: '본문 전체 듣기', exact: true }).click();
       await page.evaluate(() => window.__old.onend?.());
@@ -174,28 +177,28 @@ async function main() {
       assert.equal(await page.getByRole('button', { name: '학습 듣기 멈추기', exact: true }).count(), 0);
       assert.equal(await current().getAttribute('data-playback-line'), '0');
       await page.getByRole('button', { name: '멈추기', exact: true }).click(); await restored();
-      await page.getByRole('button', { name: '본문 7회 학습 듣기', exact: true }).click();
+      await page.getByRole('button', { name: '본문 10회 학습 듣기', exact: true }).click();
       await page.getByRole('button', { name: '학습 듣기 멈추기', exact: true }).click(); await restored();
       let count = await page.evaluate(() => window.__spoken.length);
       await page.evaluate(() => window.__utterance.onend?.()); await page.waitForTimeout(50);
       assert.equal(await page.evaluate(() => window.__spoken.length), count);
-      await page.getByRole('button', { name: '본문 7회 학습 듣기', exact: true }).click();
+      await page.getByRole('button', { name: '본문 10회 학습 듣기', exact: true }).click();
       await current().getByRole('button', { name: '듣기', exact: true }).click(); await restored();
-      await page.getByRole('button', { name: '본문 7회 학습 듣기', exact: true }).click();
+      await page.getByRole('button', { name: '본문 10회 학습 듣기', exact: true }).click();
       await page.getByRole('button', { name: '회화', exact: true }).click(); await restored();
       count = await page.evaluate(() => window.__spoken.length);
       await page.evaluate(() => window.__utterance.onend?.()); await page.waitForTimeout(50);
       assert.equal(await page.evaluate(() => window.__spoken.length), count);
       // 오프라인 음성팩이 없는 경우에도 표시 전환을 남기지 않는다.
       await context.setOffline(true); await page.evaluate(() => { window.__voices = []; });
-      await page.getByRole('button', { name: '회화 7회 학습 듣기', exact: true }).click();
+      await page.getByRole('button', { name: '회화 10회 학습 듣기', exact: true }).click();
       await page.getByRole('alert').filter({ hasText: '오프라인 기기 음성이 없어요.' }).waitFor(); await restored();
       await context.setOffline(false);
       await page.getByRole('link', { name: '다음 과', exact: true }).click();
-      await page.getByRole('button', { name: '회화 7회 학습 듣기', exact: true }).waitFor();
+      await page.getByRole('button', { name: '회화 10회 학습 듣기', exact: true }).waitFor();
       await page.getByRole('button', { name: '본문', exact: true }).click();
-      await page.getByRole('button', { name: '본문 7회 학습 듣기', exact: true }).waitFor();
-      assert.equal(await page.getByRole('button', { name: '본문 7회 학습 듣기', exact: true }).isDisabled(), true);
+      await page.getByRole('button', { name: '본문 10회 학습 듣기', exact: true }).waitFor();
+      assert.equal(await page.getByRole('button', { name: '본문 10회 학습 듣기', exact: true }).isDisabled(), true);
       await restored();
       assert.equal(audioRequests, 0); assert.deepEqual(errors, []);
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
