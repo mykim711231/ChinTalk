@@ -14,8 +14,10 @@ export type DeckLater = { remaining: string[]; correct: number; total: number };
  * 떠올리기 플래시카드: 한글 → (말하기) → 한자·병음·한글 확인 → 맞음/못함.
  * 못함은 따라 말하기 후 추가 학습 더미로 가고, 더미가 빌 때까지 반복한다.
  */
-export default function RecallDeck({ lines, carry = { correct: 0, total: 0 }, onGrade, onFinish, onLater }: {
+export default function RecallDeck({ lines, face, carry = { correct: 0, total: 0 }, onGrade, onFinish, onLater }: {
   lines: StudyLine[];
+  /** 앞면에 보여 줄 것: 한글 또는 간체 */
+  face: 'ko' | 'zh';
   carry?: { correct: number; total: number };
   /** 카드의 첫 시도 결과 */
   onGrade: (line: StudyLine, ok: boolean) => void;
@@ -26,8 +28,6 @@ export default function RecallDeck({ lines, carry = { correct: 0, total: 0 }, on
   const [phase, setPhase] = useState<'front' | 'back' | 'shadow'>('front');
   const [shadowDone, setShadowDone] = useState(0);
   const [ready, setReady] = useState(false);
-  const [face, setFace] = useState<'ko' | 'zh'>(() => { try { return localStorage.getItem('chintalk-recall-face') === 'zh' ? 'zh' : 'ko'; } catch { return 'ko'; } });
-  const pickFace = (f: 'ko' | 'zh') => { setFace(f); try { localStorage.setItem('chintalk-recall-face', f); } catch { /* 저장 불가 */ } };
   const shadow = useShadowing(lines, stopSpeak);
   const { play } = shadow;
   const cur = currentCard(rs);
@@ -103,11 +103,6 @@ export default function RecallDeck({ lines, carry = { correct: 0, total: 0 }, on
       <div role="status" className="flex items-center justify-between text-xs text-slate-500">
         <span>{rs.inPile ? '추가 학습' : '떠올리기'} · 남은 카드 {left}장</span>
         {onLater && <button type="button" className="underline" onClick={later}>나중에 하기</button>}
-      </div>
-      <div role="group" aria-label="앞면 표시" className="flex justify-center gap-2 text-xs">
-        {(['ko', 'zh'] as const).map((f) => (
-          <button key={f} type="button" aria-pressed={face === f} onClick={() => pickFace(f)} className={`rounded-full border px-3 py-1 font-semibold ${face === f ? 'bg-brand text-white border-brand' : 'bg-white border-slate-200'}`}>{f === 'ko' ? '한글 보고 말하기' : '한자 보고 뜻 떠올리기'}</button>
-        ))}
       </div>
       {shadow.error && <p role="alert" className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl p-3">{shadow.error}</p>}
 

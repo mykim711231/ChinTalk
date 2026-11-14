@@ -16,7 +16,7 @@ type R = {
   setPending: (key: string, value: Pending | null) => void;
 };
 
-export const pendingKey = (lessonId: string, source: MasterySource) => `${lessonId}:${source}`;
+export const pendingKey = (lessonId: string, source: MasterySource, face: 'ko' | 'zh') => `${lessonId}:${source}:${face}`;
 export const dueCards = (cards: Record<string, ReviewCard>, today?: string) =>
   Object.values(cards).filter((c) => isDue(c, today)).sort((a, b) => a.due.localeCompare(b.due));
 

@@ -1,15 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { loadLesson, loadMeta } from '../lib/contentLoader';
-import { speak, speakAsync, speakKoIfOn, stopSpeak } from '../lib/tts';
+import { speakAsync, speakKoIfOn, stopSpeak } from '../lib/tts';
 import { recommendLesson } from "../lib/recommend";
 import { getMasteryResult, isUnlocked, useProgressStore } from '../stores/useProgressStore';
 import { useSettingsStore } from '../stores/useSettingsStore';
 import { useOfflineStore } from '../stores/useOfflineStore';
-import ChunkCard from '../components/ChunkCard';
 import Icon from '../components/Icon';
 import LessonSelect from '../components/LessonSelect';
-import type { Chunk, Lesson, LessonMeta, MasterySource, Verse } from '../types/lesson';
+import type { Lesson, LessonMeta, MasterySource, Verse } from '../types/lesson';
 import { studyLines, studySourceLabel, type StudyLine } from '../lib/studyContent';
 import { useStudySource } from '../hooks/useStudySource';
 import StudySourceSelector from '../components/StudySourceSelector';
@@ -18,13 +17,15 @@ import { alignChars } from '../lib/pinyin';
 import { Toggle } from '../components/ui';
 import RecallDeck from '../components/RecallDeck';
 import { buildQuiz, type QuizItem } from '../lib/quiz';
-import { masteryScore } from '../lib/recall';
+import { masteryScore, recallOrder } from '../lib/recall';
 import { pendingKey, useReviewStore } from '../stores/useReviewStore';
 import { useHighlightStore } from '../stores/useHighlightStore';
 import { useShadowing, type ShadowingController } from '../hooks/useShadowing';
 import { usePlaybackFollow } from '../hooks/usePlaybackFollow';
 
-const STAGES = ['듣고 이해', '구조 분석', '따라 말하기', '떠올리기'] as const;
+const STAGES = ['듣고 이해', '한글 보고 떠올리기', '간체 보고 떠올리기', '따라 말하기'] as const;
+type Face = 'ko' | 'zh';
+type DeckResult = { correct: number; total: number };
 const btn = 'inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white text-sm font-semibold px-3 py-2 disabled:opacity-40';
 const btnBrand = 'inline-flex items-center gap-1.5 rounded-full bg-brand text-white text-sm font-semibold px-4 py-2 disabled:opacity-40';
 
@@ -70,17 +71,19 @@ function MasteryContent({ id, source, onSourceChange }: {
 }) {
   const [lesson, setLesson] = useState<Lesson | null | undefined>(undefined);
   const [stage, setStage] = useState(0);
-  const [popup, setPopup] = useState<{ chunk: Chunk; traps: Lesson['traps'] } | null>(null);
-  const pKey = pendingKey(id, source);
-  const pending = useReviewStore((s) => s.pending[pKey]);
+  const kKey = pendingKey(id, source, 'ko');
+  const zKey = pendingKey(id, source, 'zh');
+  const pendingKo = useReviewStore((s) => s.pending[kKey]);
+  const pendingZh = useReviewStore((s) => s.pending[zKey]);
   const { setPending, addWeak } = useReviewStore();
   const addRed = useHighlightStore((s) => s.addRed);
   const [quiz, setQuiz] = useState<{ correct: number; total: number } | null>(() => {
-    const q = useReviewStore.getState().pending[pKey]?.quiz;
+    const st = useReviewStore.getState().pending;
+    const q = (st[kKey] ?? st[zKey])?.quiz;
     return q == null ? null : { correct: Math.round(q * 100), total: 100 };
   });
-  const [result, setResult] = useState<{ score: number } | null>(null);
-  const [deckKey, setDeckKey] = useState(0);
+  const [decks, setDecks] = useState<{ ko: DeckResult | null; zh: DeckResult | null }>({ ko: null, zh: null });
+  const [deckKey, setDeckKey] = useState({ ko: 0, zh: 0 });
   const prog = useProgressStore();
   const { markMastered, setLast } = prog;
   const level = useSettingsStore((s) => s.level);
@@ -88,7 +91,7 @@ function MasteryContent({ id, source, onSourceChange }: {
   const lines = useMemo(() => lesson ? studyLines(lesson, source) : [], [lesson, source]);
   const all = usePlayAll(lines);
   const shadow = useShadowing(lines, all.stop);
-  const follow = usePlaybackFollow(stage === 1 || stage === 2 ? all.playing : -1, `${lesson?.id ?? ''}:${source}:${stage}`);
+  const follow = usePlaybackFollow(stage === 3 ? all.playing : -1, `${lesson?.id ?? ''}:${source}:${stage}`);
   const nav = useNavigate();
   const [metas, setMetas] = useState<LessonMeta[]>([]);
   useEffect(() => { void loadMeta().then(setMetas); }, []);
@@ -97,12 +100,11 @@ function MasteryContent({ id, source, onSourceChange }: {
     let active = true;
     setLesson(undefined);
     setStage(0);
-    setPopup(null);
     loadLesson(id).then((l) => { if (active) { setLesson(l ?? null); if (l) setLast(l.id); } });
     return () => { active = false; };
   }, [id, setLast]);
 
-  const go = (n: number) => { all.stop(); shadow.stopPlayback(); shadow.stopRecording(); setPopup(null); setStage(n); };
+  const go = (n: number) => { all.stop(); shadow.stopPlayback(); shadow.stopRecording(); setStage(n); };
 
   if (lesson === undefined) return <main className="p-4">불러오는 중…</main>;
   if (lesson === null) return <main className="p-4">과를 찾을 수 없습니다. <Link to="/path" className="text-brand">목록으로</Link></main>;
@@ -110,9 +112,6 @@ function MasteryContent({ id, source, onSourceChange }: {
   const finished = getMasteryResult(prog, lesson.id, source);
   const sourceLabel = studySourceLabel(source);
   const playLabel = all.playing >= 0 ? '멈추기' : `${sourceLabel} 전체 듣기`;
-  const trapsFor = (c: Chunk) =>
-    lesson.traps.filter((t) => c.zh.includes(t.target) || c.pinyin.toLowerCase().includes(t.target.toLowerCase()));
-
   return (
     <main ref={follow.readingRef} className="p-4 pb-24 space-y-4">
       <Link to={`/lesson/${lesson.id}`} className="text-sm text-slate-500">← {lesson.no}. {lesson.titleZh} 과 참고</Link>
@@ -124,7 +123,7 @@ function MasteryContent({ id, source, onSourceChange }: {
       <LessonSelect label="과 선택" metas={metas} value={lesson.id} recId={recommendLesson(metas, prog, level)?.id} isDone={(id) => isUnlocked(prog, id)} onChange={(v) => { all.stop(); nav(`/lesson/${v}/mastery?source=${source}`); }} />
 
       <StudySourceSelector value={source} lesson={lesson} onChange={(value) => { all.stop(); onSourceChange(value); }} />
-      <p className="text-xs text-slate-500">{sourceLabel} · {lines.length}문장으로 4단계(듣고 이해 → 구조 분석 → 따라 말하기 → 떠올리기)를 진행해요. 대상을 바꾸면 1단계부터 시작해요.</p>
+      <p className="text-xs text-slate-500">{sourceLabel} · {lines.length}문장으로 4단계(듣고 이해 → 한글 보고 떠올리기 → 간체 보고 떠올리기 → 따라 말하기)를 진행해요. 본문은 무작위, 회화는 순서대로 나와요. 대상을 바꾸면 1단계부터 시작해요.</p>
       {!lines.length && <p role="status" className="text-sm text-slate-500">등록된 {sourceLabel} 내용이 없어요. 다른 학습 내용을 선택해 주세요.</p>}
 
       <ol className="grid grid-cols-4 gap-1" aria-label="진행 단계">
@@ -143,7 +142,7 @@ function MasteryContent({ id, source, onSourceChange }: {
         ))}
       </ol>
 
-      {(stage === 1 || stage === 2) && <div ref={follow.controlsRef} className={`flex flex-wrap items-center gap-3 ${all.playing >= 0 ? 'playback-controls' : ''}`} aria-label="듣기와 표시 설정">
+      {stage === 3 && <div ref={follow.controlsRef} className={`flex flex-wrap items-center gap-3 ${all.playing >= 0 ? 'playback-controls' : ''}`} aria-label="듣기와 표시 설정">
         <button type="button" disabled={!lines.length || !!shadow.capture} className={btnBrand} onClick={() => {
           shadow.stopPlayback();
           if (all.playing >= 0) all.stop(); else void all.play();
@@ -162,94 +161,62 @@ function MasteryContent({ id, source, onSourceChange }: {
         for (const i of wrong) addRed(lines[i].verse.chunks.map((c) => c.id));
       }} />}
 
-      {stage === 1 && (
-        <section className="space-y-3">
-          <p className="text-sm text-slate-600">스크립트를 보며 듣고, 구절을 눌러 발음 함정을 확인하세요.</p>
-          {lines.map(({ verse: v, speaker, section }, i) => (
-            <div key={i} data-playback-line={i} aria-current={i === all.playing ? 'true' : undefined} className={i === all.playing ? 'ring-2 ring-brand rounded-xl' : ''}>
-              {section && <h3 className="font-semibold text-sm mb-1">{section}</h3>}
-              <ChunkCard verse={v} speaker={speaker} onBeforeSpeak={all.stop} />
-              {(v.chunks.length > 1 || v.chunks.some((c) => trapsFor(c).length > 0)) && (
-                <div className="flex flex-wrap gap-1.5 -mt-1 mb-3 px-1">
-                  {v.chunks.map((c) => (
-                    <button
-                      key={c.id} type="button"
-                      onClick={() => { all.stop(); void speak(c.zh); const t = trapsFor(c); setPopup(t.length ? { chunk: c, traps: t } : null); }}
-                      lang="zh-Hans" className="rounded-full border border-slate-300 bg-white px-2.5 py-1 font-hanzi text-xl"
-                    >
-                      {c.zh}
-                    </button>
-                  ))}
+      {(stage === 1 || stage === 2) && (() => {
+        const face: Face = stage === 1 ? 'ko' : 'zh';
+        const pend = face === 'ko' ? pendingKo : pendingZh;
+        const key = face === 'ko' ? kKey : zKey;
+        const res = decks[face];
+        const faceLabel = face === 'ko' ? '한글 보고 떠올리기' : '간체 보고 떠올리기';
+        const quizRatio = quiz ? quiz.correct / quiz.total : null;
+        const finish = (r: DeckResult) => {
+          const next = { ...decks, [face]: r };
+          setDecks(next);
+          setPending(key, null);
+          if (next.ko && next.zh) {
+            const t = next.ko.total + next.zh.total;
+            markMastered(lesson.id, masteryScore(quizRatio, t ? (next.ko.correct + next.zh.correct) / t : 1), source);
+          }
+        };
+        if (res) {
+          const both = !!(decks.ko && decks.zh);
+          const score = both ? masteryScore(quizRatio, (decks.ko!.correct + decks.zh!.correct) / Math.max(1, decks.ko!.total + decks.zh!.total)) : null;
+          return (
+            <section className="space-y-3" aria-label={`${faceLabel} 결과`}>
+              <div role="status" className="rounded-xl border border-green-300 bg-green-50 p-4 text-sm space-y-2">
+                <p className="text-lg font-bold">{faceLabel} 완료 · 첫 시도 {res.correct}/{res.total}</p>
+                {score !== null && <p>심화 학습 점수 <b>{score}점</b>{score >= 80 ? ' · 마스터' : ''} (듣고 이해 {quiz ? `${quiz.correct}/${quiz.total}` : '건너뜀'} + 떠올리기 첫 시도). 이 과의 음원이 <b>편하게 듣기</b>에 해금되었어요.</p>}
+                <p>못한 문장은 빨강 북마크에 담고, 1일 · 3일 · 7일 뒤에 <Link to="/review" className="underline font-semibold">복습</Link>으로 다시 나와요.</p>
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" className={btnBrand} onClick={() => { setDecks({ ...decks, [face]: null }); setDeckKey({ ...deckKey, [face]: deckKey[face] + 1 }); }}>다시 도전</button>
+                  {face === 'ko' && <button type="button" className={btn} onClick={() => go(2)}>간체 보고 떠올리기 <Icon name="chevronRight" size={16} /></button>}
+                  {face === 'zh' && <button type="button" className={btn} onClick={() => go(3)}>따라 말하기 <Icon name="chevronRight" size={16} /></button>}
+                  {both && <Link to={`/passive?source=${source}`} className={btn}><Icon name="headphones" size={16} /> 편하게 듣기</Link>}
                 </div>
-              )}
-            </div>
-          ))}
-          {popup && (
-            <div role="dialog" aria-label="발음 함정" className="fixed inset-x-0 bottom-20 z-40 px-4">
-              <div className="mx-auto max-w-xl rounded-2xl border border-amber-300 bg-amber-50 p-4 shadow-lg text-sm">
-                <div className="flex items-center justify-between">
-                  <b className="inline-flex items-center gap-1.5"><Icon name="bulb" size={16} /> 발음 함정 · {popup.chunk.zh}</b>
-                  <button type="button" aria-label="닫기" onClick={() => setPopup(null)}><Icon name="x" size={18} /></button>
-                </div>
-                {popup.traps.map((t, i) => (
-                  <div key={i} className="mt-2">
-                    <div className="font-semibold"><span lang="zh-Hans" className="font-hanzi text-xl">{t.target}</span> <span lang="zh-Latn-pinyin" className="reading-pinyin font-normal">{t.pinyin}</span></div>
-                    <div className="text-red-700">✗ {t.mistake}</div>
-                    <div className="text-green-700">✓ {t.correct}</div>
-                  </div>
-                ))}
               </div>
-            </div>
-          )}
-        </section>
-      )}
-
-      {stage === 2 && <Shadowing lines={lines} shadow={shadow} playingIndex={all.playing} />}
-
-      {stage === 3 && (result ? (
-        <section className="space-y-3" aria-label="심화 학습 결과">
-          <div role="status" className="rounded-xl border border-green-300 bg-green-50 p-4 text-sm space-y-2">
-            <p className="text-lg font-bold">{result.score >= 80 ? '마스터' : '완료'} · {result.score}점</p>
-            <p>듣고 이해 {quiz ? `${quiz.correct}/${quiz.total}` : '건너뜀'} · 떠올리기는 첫 시도 정답률로 계산해요. 추가 학습에서 맞힌 것은 점수에 더하지 않아요.</p>
-            <p>못한 문장은 빨강 북마크에 담고, 1일 · 3일 · 7일 뒤에 <Link to="/review" className="underline font-semibold">복습</Link>으로 다시 나와요. 이 과의 음원이 <b>편하게 듣기</b>에 해금되었어요.</p>
-            <div className="flex flex-wrap gap-2">
-              <Link to={`/passive?source=${source}`} className={btn}><Icon name="headphones" size={16} /> 편하게 듣기</Link>
-              <Link to="/path" className={btn}>학습 경로</Link>
-              <button type="button" className={btn} onClick={() => { setResult(null); setDeckKey((k) => k + 1); }}>카드 다시 하기</button>
-            </div>
-          </div>
-        </section>
-      ) : (() => {
-        const rest = pending ? new Set(pending.remaining) : null;
-        const deckLines = rest ? lines.filter((l) => rest.has(l.verse.zh)) : lines;
-        if (!deckLines.length) return null;
+            </section>
+          );
+        }
+        const intro = pend
+          ? `지난번에 멈춘 곳에서 이어 해요. 남은 카드 ${pend.remaining.length}장`
+          : face === 'ko'
+            ? '한글 뜻을 보고 중국어를 떠올려 말한 뒤, 뒤집어서 한자·병음·한글로 확인하세요. 못한 카드는 따라 말하기 후 추가 학습에서 다시 나와요.'
+            : '간체를 보고 뜻을 떠올린 뒤, 뒤집어서 병음·한글로 확인하세요. 못한 카드는 따라 말하기 후 추가 학습에서 다시 나와요.';
         return (
-          <div className="space-y-2">
-            <p className="text-sm text-slate-600">{pending ? `지난번에 멈춘 곳에서 이어 해요. 남은 카드 ${deckLines.length}장` : '한글 뜻을 보고 중국어를 떠올려 말한 뒤, 뒤집어서 한자·병음·한글로 확인하세요. 못한 카드는 따라 말하기 후 추가 학습에서 다시 나와요.'}</p>
-            <RecallDeck
-              key={`${deckKey}:${pending ? 'resume' : 'new'}`}
-              lines={deckLines}
-              carry={pending ? { correct: pending.correct, total: pending.total } : undefined}
-              onGrade={(line, ok) => {
-                if (ok) return;
-                addRed(line.verse.chunks.map((c) => c.id));
-                addWeak(lesson.id, line.verse.zh);
-              }}
-              onLater={(later) => {
-                setPending(pKey, { ...later, quiz: quiz ? quiz.correct / quiz.total : null });
-                nav('/study');
-              }}
-              onFinish={({ correct, total }) => {
-                const recall = total ? correct / total : 1;
-                const score = masteryScore(quiz ? quiz.correct / quiz.total : null, recall);
-                markMastered(lesson.id, score, source);
-                setPending(pKey, null);
-                setResult({ score });
-              }}
-            />
-          </div>
+          <RecallStage
+            key={`${face}:${deckKey[face]}:${pend ? 'resume' : 'new'}`}
+            face={face} lines={lines} pending={pend} intro={intro}
+            onGrade={(line, ok) => {
+              if (ok) return;
+              addRed(line.verse.chunks.map((c) => c.id));
+              addWeak(lesson.id, line.verse.zh);
+            }}
+            onLater={(later) => { setPending(key, { ...later, quiz: quizRatio }); nav('/study'); }}
+            onFinish={finish}
+          />
         );
-      })())}
+      })()}
+
+      {stage === 3 && <Shadowing lines={lines} shadow={shadow} playingIndex={all.playing} />}
 
       <div className="flex justify-between pt-2">
         <button type="button" className={btn} disabled={stage === 0} onClick={() => go(stage - 1)}>
@@ -260,6 +227,26 @@ function MasteryContent({ id, source, onSourceChange }: {
         </button>
       </div>
     </main>
+  );
+}
+
+function RecallStage({ face, lines, pending, intro, onGrade, onLater, onFinish }: {
+  face: 'ko' | 'zh'; lines: StudyLine[]; pending?: { remaining: string[]; correct: number; total: number };
+  intro: string; onGrade: (line: StudyLine, ok: boolean) => void;
+  onLater: (later: { remaining: string[]; correct: number; total: number }) => void;
+  onFinish: (r: { correct: number; total: number }) => void;
+}) {
+  // 본문은 무작위, 회화는 순서대로. 시작할 때 한 번만 정한다.
+  const deckLines = useMemo(() => {
+    const rest = pending ? new Set(pending.remaining) : null;
+    return recallOrder(rest ? lines.filter((l) => rest.has(l.verse.zh)) : lines);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!deckLines.length) return null;
+  return (
+    <div className="space-y-2">
+      <p className="text-sm text-slate-600">{intro}</p>
+      <RecallDeck lines={deckLines} face={face} carry={pending ? { correct: pending.correct, total: pending.total } : undefined} onGrade={onGrade} onLater={onLater} onFinish={onFinish} />
+    </div>
   );
 }
 
@@ -284,7 +271,7 @@ function Quiz({ lines, previous, onDone }: {
   if (done) {
     return (
       <section className="space-y-3" aria-label="듣고 이해 결과">
-        <p role="status" className="rounded-xl border border-brand-200 bg-brand-50 p-3 text-sm"><b>{correct}/{items.length}</b> 맞혔어요. 틀린 문장은 빨강 북마크에 담았어요. 다음 단계에서 구조를 확인해요.</p>
+        <p role="status" className="rounded-xl border border-brand-200 bg-brand-50 p-3 text-sm"><b>{correct}/{items.length}</b> 맞혔어요. 틀린 문장은 빨강 북마크에 담았어요. 다음 단계에서 한글을 보고 중국어를 떠올려요.</p>
         <button type="button" className={btn} onClick={() => { setN(0); setChosen(null); setWrong([]); setCorrect(0); setDone(false); }}>퀴즈 다시 풀기</button>
       </section>
     );

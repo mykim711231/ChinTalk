@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { addDays, nextCard, isDue, SRS_DAYS, type ReviewCard } from '../src/lib/srs';
-import { BATCH, currentCard, gradeCard, masteryScore, recallAccuracy, remainingCards, shadowCount, startRecall } from '../src/lib/recall';
+import { recallOrder, BATCH, currentCard, gradeCard, masteryScore, recallAccuracy, remainingCards, shadowCount, startRecall } from '../src/lib/recall';
 import { buildQuiz } from '../src/lib/quiz';
 import type { StudyLine } from '../src/lib/studyContent';
 
@@ -70,4 +70,12 @@ test('퀴즈: 정답이 보기에 있고 보기는 서로 다르다', () => {
     assert.equal(q.options[q.answer], lines[q.index].verse.ko);
   }
   assert.deepEqual(buildQuiz([line(1)]), []);
+});
+
+test('떠올리기 순서: 본문은 무작위, 회화는 순서 유지', () => {
+  const t = (n: number) => ({ ...line(n), source: 'text' as const });
+  const d = (n: number) => ({ ...line(n), source: 'dialog' as const });
+  const out = recallOrder([t(1), t(2), t(3), t(4), d(5), d(6), d(7)]);
+  assert.deepEqual(out.slice(4).map((l) => l.verse.zh), ['句5', '句6', '句7']);
+  assert.deepEqual(new Set(out.slice(0, 4).map((l) => l.verse.zh)), new Set(['句1', '句2', '句3', '句4']));
 });

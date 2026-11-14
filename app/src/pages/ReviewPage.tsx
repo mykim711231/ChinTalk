@@ -48,7 +48,7 @@ export default function ReviewPage() {
         </p>
       )}
       {lines && lines.length > 0 && !done && (
-        <RecallDeck
+        <RecallDeck face="ko"
           lines={lines}
           onGrade={(line, ok) => grade((line as StudyLine & { lessonId: string }).lessonId, line.verse.zh, ok)}
           onFinish={() => setDone(true)}

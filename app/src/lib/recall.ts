@@ -68,3 +68,10 @@ export function recallAccuracy(s: RecallState, carry = { correct: 0, total: 0 })
 export function masteryScore(quiz: number | null, recall: number): number {
   return Math.round(quiz === null ? recall * 100 : (quiz * 50 + recall * 50));
 }
+
+/** 떠올리기 순서: 본문은 무작위, 회화는 교재 순서(본문 → 회화) */
+export function recallOrder<T extends { source: 'text' | 'dialog' }>(lines: T[]): T[] {
+  const text = lines.filter((l) => l.source === 'text');
+  const mixed = shuffled(text.map((_, i) => i)).map((i) => text[i]);
+  return [...mixed, ...lines.filter((l) => l.source === 'dialog')];
+}

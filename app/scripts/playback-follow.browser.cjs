@@ -67,7 +67,7 @@ async function main() {
       assert.ok(Math.abs(await page.evaluate(() => scrollY) - y) < 2);
     };
     await page.goto(`${base}#/lesson/v1-02/mastery?source=text`, { waitUntil: 'commit' });
-    for (const source of ['text', 'dialog', 'all']) for (const stage of ['2. 구조 분석', '3. 따라 말하기']) {
+    for (const source of ['text', 'dialog', 'all']) for (const stage of ['4. 따라 말하기']) {
       const name = { text: '본문', dialog: '회화', all: '본문+회화' }[source];
       await page.getByRole('group', { name: '학습 대상', exact: true }).getByRole('button', { name, exact: true }).click();
       await page.getByRole('button', { name: stage, exact: true }).click();
@@ -80,7 +80,7 @@ async function main() {
     }
     console.log('PASS: Script/Shadowing follow text, all dialogue sections and combined targets; active sentence stays clear of menus, stop stays accessible and focus is not moved');
 
-    await page.getByRole('button', { name: '2. 구조 분석', exact: true }).click();
+    await page.getByRole('button', { name: '4. 따라 말하기', exact: true }).click();
     await page.getByRole('button', { name: '본문+회화 전체 듣기', exact: true }).click();
     await visible(0);
     for (let i = 1; i <= 13; i++) await advance(i);
@@ -96,7 +96,9 @@ async function main() {
     await page.getByRole('button', { name: '1. 듣고 이해', exact: true }).click();
     await page.getByRole('group', { name: '한글 뜻 선택' }).waitFor();
     assert.equal(await page.getByRole('button', { name: '본문+회화 전체 듣기', exact: true }).count(), 0);
-    await page.getByRole('button', { name: '4. 떠올리기', exact: true }).click();
+    await page.getByRole('button', { name: '2. 한글 보고 떠올리기', exact: true }).click();
+    await page.getByRole('region', { name: '떠올리기 카드' }).waitFor();
+    await page.getByRole('button', { name: '3. 간체 보고 떠올리기', exact: true }).click();
     await page.getByRole('region', { name: '떠올리기 카드' }).waitFor();
     assert.equal(await page.getByRole('button', { name: '본문+회화 전체 듣기', exact: true }).count(), 0);
     console.log('PASS: quiz and recall cards replace the old blind/final stages without the play-all queue');
@@ -117,7 +119,7 @@ async function main() {
     await page.emulateMedia({ reducedMotion: 'no-preference' });
     await page.getByRole('button', { name: '본문', exact: true }).click();
     await page.getByRole('button', { name: /^심화 학습/ }).click();
-    await page.getByRole('button', { name: '3. 따라 말하기', exact: true }).click();
+    await page.getByRole('button', { name: '4. 따라 말하기', exact: true }).click();
     await page.evaluate(() => { window.__scrolls = []; });
     await page.getByRole('button', { name: '본문 전체 듣기', exact: true }).click();
     await page.waitForTimeout(700); await visible(0);

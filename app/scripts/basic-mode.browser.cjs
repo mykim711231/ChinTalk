@@ -67,7 +67,7 @@ async function main() {
         await page.getByRole('button', { name: '멈추기', exact: true }).click();
         await go('/lesson/v1-01/mastery');
         await page.getByRole('heading', { name: '심화 학습 이용 안내', exact: true }).waitFor();
-        assert.equal(await page.getByRole('button', { name: '3. 따라 말하기', exact: true }).count(), 0);
+        assert.equal(await page.getByRole('button', { name: '4. 따라 말하기', exact: true }).count(), 0);
         await go('/daily?id=v1-01');
         await page.getByRole('heading', { name: '10분 데일리 이용 안내', exact: true }).waitFor();
         await go('/passive?source=all');
@@ -90,7 +90,7 @@ async function main() {
         }
       } else {
         await go('/lesson/v1-01/mastery');
-        await page.getByRole('button', { name: '3. 따라 말하기', exact: true }).waitFor();
+        await page.getByRole('button', { name: '4. 따라 말하기', exact: true }).waitFor();
         await go('/daily?id=v1-01');
         await page.getByRole('heading', { name: '10분 데일리', exact: true }).waitFor();
       }
