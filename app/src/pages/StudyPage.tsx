@@ -15,7 +15,7 @@ import { dueCards, useReviewStore } from '../stores/useReviewStore';
 
 const card = 'rounded-2xl border border-slate-200 bg-white shadow-sm flex items-center gap-3 p-4';
 
-/** 학습 메뉴: 10분 데일리 · 편하게 듣기 · 심화 학습 · 복습 */
+/** 학습 메뉴: 10분 데일리 · 편하게 듣기 · 심화 학습 · 심화 학습 복습 */
 export default function StudyPage() {
   const basic = isBasicMode();
   const { source } = useStudySource();
@@ -66,7 +66,7 @@ export default function StudyPage() {
       <Link to="/review" className={card}>
         <Icon name="repeat" size={26} className="text-brand flex-none" />
         <span className="min-w-0 flex-1">
-          <b className="block">복습{dueCount ? ` (${dueCount}장)` : ''}</b>
+          <b className="block">심화 학습 복습{dueCount ? ` (${dueCount}장)` : ''}</b>
           <span className="block text-xs text-slate-500">{dueCount ? '심화 학습에서 못한 문장을 다시 확인해요.' : '못한 문장이 생기면 여기서 언제든 복습해요.'}</span>
         </span>
         <Icon name="arrowRight" size={18} className="text-slate-400" />

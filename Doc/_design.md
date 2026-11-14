@@ -595,7 +595,7 @@ words: [我(wǒ) 很(hěn) 好(hǎo) 谢谢(xièxie)]
 
 **약점 처리**: 퀴즈 오답 + 첫 시도 못함 문장은 해당 구절의 Chunk를 🔴 빨강으로 마킹한다(우선 재학습).
 
-**복습(2차 — 날을 넘기는 복습)**: 첫 시도에서 못함인 문장은 `chintalk-review.cards`에 등록되고, **날짜 제한 없이 언제든** `/review`(복습)에서 플래시카드로 확인한다. 맞히면 익힌 것으로 보고 목록에서 빠지고, 틀리면 남는다. 홈·학습 메뉴에 "복습 N장"을 표시한다. (§1 이전의 "SRS 제외" 결정을 이 범위로 한정해 번복: 전체 어휘 SRS·검색은 여전히 제외.)
+**심화 학습 복습(2차 — 날을 넘기는 복습)**: 첫 시도에서 못함인 문장은 `chintalk-review.cards`에 등록되고, **날짜 제한 없이 언제든** `/review`(복습)에서 플래시카드로 확인한다. 맞히면 익힌 것으로 보고 목록에서 빠지고, 틀리면 남는다. 홈·학습 메뉴에 "심화 학습 복습 N장"을 표시한다. (§1 이전의 "SRS 제외" 결정을 이 범위로 한정해 번복: 전체 어휘 SRS·검색은 여전히 제외.)
 
 **데이터**: `Lesson.traps[]`, `Lesson.body[].chunks[]`, `zh-tts-manifest.json` + `zh-timestamps.json`. 신규 스토어 `useReviewStore`(persist `chintalk-review`: `cards{lessonId,zh}`, `pending`), 순수 로직 `lib/srs.ts`, `lib/recall.ts`, `lib/quiz.ts`, 컴포넌트 `RecallDeck`.
 **단어장**: 과 참고(S-004)에서 단어 탭 → 단어장 바텀시트 활성(§5.6). 🔴 마킹 단어는 재학습 시 우선 노출.

@@ -48,7 +48,7 @@ export default function App() {
         <Route path="/path" element={<PathPage />} />
         <Route path="/lesson/:id" element={<LessonPage />} />
         <Route path="/lesson/:id/mastery" element={basic ? <BasicModeUnavailable feature="심화 학습" /> : <MasteryPage />} />
-        <Route path="/review" element={basic ? <BasicModeUnavailable feature="복습" /> : <ReviewPage />} />
+        <Route path="/review" element={basic ? <BasicModeUnavailable feature="심화 학습 복습" /> : <ReviewPage />} />
         <Route path="/study" element={<StudyPage />} />
         <Route path="/daily" element={basic ? <BasicModeUnavailable feature="10분 데일리" /> : <DailyPage />} />
         <Route path="/passive" element={<PassivePage />} />

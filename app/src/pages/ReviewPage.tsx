@@ -37,7 +37,7 @@ export default function ReviewPage() {
   return (
     <main className="p-4 pb-28 space-y-4">
       <Link to="/study" className="text-sm text-slate-500">← 학습</Link>
-      <h1 className="text-xl font-bold">복습</h1>
+      <h1 className="text-xl font-bold">심화 학습 복습</h1>
       <p className="text-xs text-slate-500">심화 학습에서 못한 문장을 언제든 복습할 수 있어요. 맞히면 익힌 것으로 목록에서 빠지고, 못하면 남아요.</p>
       {lines === null && <p className="text-sm">불러오는 중…</p>}
       {lines && !lines.length && (
@@ -52,7 +52,7 @@ export default function ReviewPage() {
           onFinish={() => setDone(true)}
         />
       )}
-      {done && <p role="status" className="rounded-xl border border-green-300 bg-green-50 p-4 text-sm">복습을 마쳤어요. 못한 카드는 목록에 남아 있어요.</p>}
+      {done && <p role="status" className="rounded-xl border border-green-300 bg-green-50 p-4 text-sm">심화 학습 복습을 마쳤어요. 못한 카드는 목록에 남아 있어요.</p>}
     </main>
   );
 }
