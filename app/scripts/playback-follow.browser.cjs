@@ -124,10 +124,10 @@ async function main() {
     await page.evaluate(() => { window.__scrolls = []; });
     await page.getByRole('button', { name: '본문 전체 듣기', exact: true }).click();
     await page.waitForTimeout(700); await visible(0);
-    assert.ok(await page.evaluate(() => window.__scrolls.some(args => args[0]?.behavior === 'smooth')));
+    assert.ok(await page.evaluate(() => window.__scrolls.some(args => args[0]?.behavior === 'instant')));
     await stop();
     assert.deepEqual(errors, []);
-    console.log('PASS: lesson body/dialogue auto-follow, individual playback cancels the queue, reduced-motion and smooth scrolling, no browser errors');
+    console.log('PASS: lesson body/dialogue auto-follow, individual playback cancels the queue, instant scrolling, no browser errors');
     await context.close();
   } finally { await browser?.close(); }
 }

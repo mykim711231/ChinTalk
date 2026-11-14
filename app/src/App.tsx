@@ -37,7 +37,7 @@ export default function App() {
   useEffect(() => { window.scrollTo(0, 0); }, [pathname]);
   const home = onboarded ? <HomePage /> : <Navigate to="/onboarding" replace />;
   return (
-    <div className="mx-auto max-w-xl min-h-screen">
+    <div className="mx-auto max-w-xl min-h-screen min-h-[100dvh]">
       {!bare && <TopBar />}
       <OfflineStatus compact />
       {!bare && basic && <BasicModeNotice />}

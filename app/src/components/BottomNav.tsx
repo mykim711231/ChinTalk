@@ -13,7 +13,7 @@ const STUDY = /^\/(study|daily|passive|lesson\/[^/]+\/mastery)/;
 export default function BottomNav() {
   const { pathname } = useLocation();
   return (
-    <nav data-app-bottom-nav className="fixed bottom-0 inset-x-0 z-30 bg-white border-t border-slate-200 pb-[env(safe-area-inset-bottom)]">
+    <nav data-app-bottom-nav className="fixed bottom-0 inset-x-0 z-30 [transform:translateZ(0)] bg-white border-t border-slate-200 pb-[env(safe-area-inset-bottom)]">
       <div className="mx-auto max-w-xl flex">
         {items.map((i) => (
           <NavLink

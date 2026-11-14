@@ -30,8 +30,7 @@ export function usePlaybackFollow(index: number, scope: string) {
       if (rect.top >= top && rect.bottom <= bottom) return;
       // 화면보다 긴 문장은 시작 부분을 보여 주고, 나머지는 편하게 읽도록 둔다.
       const target = top + Math.max(0, (bottom - top - rect.height) / 2);
-      const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      window.scrollTo({ top: window.scrollY + rect.top - target, behavior: reduceMotion ? 'instant' : 'smooth' });
+      window.scrollTo({ top: window.scrollY + rect.top - target, behavior: 'instant' }); // iOS는 부드러운 스크롤 중 고정 메뉴가 어긋날 수 있어 즉시 이동한다
       moved = true;
     });
     return () => {
