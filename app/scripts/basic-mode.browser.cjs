@@ -49,14 +49,14 @@ async function main() {
       await go('/study');
       assert.equal(await page.getByRole('complementary', { name: '기본 학습 모드 안내' }).count(), basic ? 1 : 0, name);
       assert.equal(await page.getByRole('link', { name: /^10분 데일리/ }).count(), basic ? 0 : 1, name);
-      assert.equal(await page.getByRole('link', { name: /^마스터리 정밀 학습/ }).count(), basic ? 0 : 1, name);
+      assert.equal(await page.getByRole('link', { name: /^심화 학습/ }).count(), basic ? 0 : 1, name);
       if (basic) {
         await page.getByRole('link', { name: /^교재 학습/ }).waitFor();
         await page.getByRole('combobox', { name: '학습할 과' }).selectOption('v8-20');
         assert.equal(await page.getByRole('link', { name: /^교재 학습/ }).getAttribute('href'), '#/lesson/v8-20');
         await go('/lesson/v1-01');
         await page.getByRole('button', { name: '본문 전체 듣기', exact: true }).waitFor();
-        assert.equal(await page.getByRole('button', { name: /4단계 마스터리/ }).count(), 0);
+        assert.equal(await page.getByRole('button', { name: /심화 학습/ }).count(), 0);
         assert.ok(await page.locator('ruby rt').count());
         await page.getByRole('button', { name: '본문 전체 듣기', exact: true }).click();
         assert.equal(await page.evaluate(() => window.__spoken[0]), lesson.text[0].zh);
@@ -66,8 +66,8 @@ async function main() {
         assert.equal(await page.evaluate(() => window.__spoken.at(-1)), lesson.dialogs[0].turns[0].verse.zh);
         await page.getByRole('button', { name: '멈추기', exact: true }).click();
         await go('/lesson/v1-01/mastery');
-        await page.getByRole('heading', { name: '마스터리 정밀 학습 이용 안내', exact: true }).waitFor();
-        assert.equal(await page.getByRole('button', { name: '3. Shadowing', exact: true }).count(), 0);
+        await page.getByRole('heading', { name: '심화 학습 이용 안내', exact: true }).waitFor();
+        assert.equal(await page.getByRole('button', { name: '3. 따라 말하기', exact: true }).count(), 0);
         await go('/daily?id=v1-01');
         await page.getByRole('heading', { name: '10분 데일리 이용 안내', exact: true }).waitFor();
         await go('/passive?source=all');
@@ -90,7 +90,7 @@ async function main() {
         }
       } else {
         await go('/lesson/v1-01/mastery');
-        await page.getByRole('button', { name: '3. Shadowing', exact: true }).waitFor();
+        await page.getByRole('button', { name: '3. 따라 말하기', exact: true }).waitFor();
         await go('/daily?id=v1-01');
         await page.getByRole('heading', { name: '10분 데일리', exact: true }).waitFor();
       }

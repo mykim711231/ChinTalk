@@ -9,6 +9,7 @@ import HomePage from './pages/HomePage';
 import PathPage from './pages/PathPage';
 import LessonPage from './pages/LessonPage';
 import MasteryPage from './pages/MasteryPage';
+import ReviewPage from './pages/ReviewPage';
 import DailyPage from './pages/DailyPage';
 import PassivePage from './pages/PassivePage';
 import OnboardingPage from './pages/OnboardingPage';
@@ -46,7 +47,8 @@ export default function App() {
         <Route path="/onboarding" element={<OnboardingPage />} />
         <Route path="/path" element={<PathPage />} />
         <Route path="/lesson/:id" element={<LessonPage />} />
-        <Route path="/lesson/:id/mastery" element={basic ? <BasicModeUnavailable feature="마스터리 정밀 학습" /> : <MasteryPage />} />
+        <Route path="/lesson/:id/mastery" element={basic ? <BasicModeUnavailable feature="심화 학습" /> : <MasteryPage />} />
+        <Route path="/review" element={basic ? <BasicModeUnavailable feature="복습" /> : <ReviewPage />} />
         <Route path="/study" element={<StudyPage />} />
         <Route path="/daily" element={basic ? <BasicModeUnavailable feature="10분 데일리" /> : <DailyPage />} />
         <Route path="/passive" element={<PassivePage />} />

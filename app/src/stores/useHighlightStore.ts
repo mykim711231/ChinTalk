@@ -6,6 +6,8 @@ type H = {
   cycle: (chunkId: string) => void;
   /** 이미 다른 색이어도 빨강으로 (데일리 '표현 확인'용). 이미 빨강이면 해제 */
   toggleRed: (chunkId: string) => void;
+  /** 약점 문장의 구절을 모두 빨강 북마크로 */
+  addRed: (chunkIds: string[]) => void;
 };
 const NEXT: Record<string, Color | undefined> = { none: 'green', green: 'yellow', yellow: 'red', red: undefined };
 export const useHighlightStore = create<H>()(persist((set) => ({
@@ -19,6 +21,11 @@ export const useHighlightStore = create<H>()(persist((set) => ({
   toggleRed: (id) => set((s) => {
     const marks = { ...s.marks };
     if (marks[id] === 'red') delete marks[id]; else marks[id] = 'red';
+    return { marks };
+  }),
+  addRed: (ids) => set((s) => {
+    const marks = { ...s.marks };
+    for (const id of ids) marks[id] = 'red';
     return { marks };
   }),
 }), { name: 'chintalk-highlight' }));

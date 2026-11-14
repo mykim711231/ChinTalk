@@ -201,7 +201,7 @@ export default function SettingsPage() {
               onChange={(e) => s.setTtsRate(Number(e.target.value))}
             />
           </Row>
-          <Row label="한글 음성" description="10분 데일리·편하게 듣기·마스터리에서 중국어 다음에 한글 번역을 읽어 줘요.">
+          <Row label="한글 음성" description="10분 데일리·편하게 듣기·심화 학습에서 중국어 다음에 한글 번역을 읽어 줘요.">
             <Toggle label="한글 음성" on={s.koVoice} onClick={() => { s.setKoVoice(!s.koVoice); showToast(s.koVoice ? '한글 음성을 껐어요.' : '한글 음성을 켰어요.'); }} />
           </Row>
           <Row label="속도 확인">

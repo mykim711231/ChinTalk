@@ -12,6 +12,7 @@
     "verify:tts": "tsx scripts/verify-tts-coverage.ts",
     "test:meaning": "tsx --test scripts/meaning-units.test.ts",
     "test:study": "tsx --test scripts/study-content.test.ts",
+    "test:recall": "tsx --test scripts/recall.test.ts",
     "test:pwa": "npm run build && node scripts/pwa-updates.browser.cjs",
     "test:follow": "npm run build && node scripts/playback-follow.browser.cjs",
     "test:basic": "npm run build && node scripts/basic-mode.browser.cjs",

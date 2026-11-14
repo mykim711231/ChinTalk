@@ -12,15 +12,18 @@ import { useStudySource } from '../hooks/useStudySource';
 import StudySourceSelector from '../components/StudySourceSelector';
 import { studySourceLabel } from '../lib/studyContent';
 import { isBasicMode } from '../lib/compatibility';
+import { dueCards, useReviewStore } from '../stores/useReviewStore';
 
 const card = 'rounded-2xl border border-slate-200 bg-white shadow-sm flex items-center gap-3 p-4';
 
-/** 학습 메뉴: 10분 데일리 · 편하게 듣기 · 마스터리 정밀 학습 */
+/** 학습 메뉴: 10분 데일리 · 편하게 듣기 · 심화 학습 · 복습 */
 export default function StudyPage() {
   const basic = isBasicMode();
   const { source, setSource } = useStudySource();
   const [meta, setMeta] = useState<LessonMeta[]>([]);
   const prog = useProgressStore();
+  const reviewCards = useReviewStore((s) => s.cards);
+  const dueCount = dueCards(reviewCards).length;
   const level = useSettingsStore((s) => s.level);
   const { koVoice, setKoVoice } = useSettingsStore();
   useEffect(() => { void loadMeta().then(setMeta); }, []);
@@ -33,7 +36,7 @@ export default function StudyPage() {
   return (
     <main className="p-4 pb-28 space-y-3">
       <h1 className="text-xl font-bold">학습</h1>
-      <p className="text-sm text-slate-600">{basic ? '교재에서 본문·단어·문법·회화를 읽고, 편하게 듣기에서 학습 대상을 골라 들을 수 있어요.' : '학습 대상을 고르면 10분 데일리·마스터리·편하게 듣기에 같은 선택이 적용돼요.'}</p>
+      <p className="text-sm text-slate-600">{basic ? '교재에서 본문·단어·문법·회화를 읽고, 편하게 듣기에서 학습 대상을 골라 들을 수 있어요.' : '학습 대상을 고르면 10분 데일리·심화 학습·편하게 듣기에 같은 선택이 적용돼요.'}</p>
       <StudySourceSelector value={source} onChange={setSource} />
       <LessonSelect label="학습할 과" metas={meta} value={sel} onChange={setPick} recId={rec?.id} isDone={basic ? undefined : (id) => isUnlocked(prog, id)} />
 
@@ -56,8 +59,17 @@ export default function StudyPage() {
       <Link to={sel ? `/lesson/${sel}/mastery?source=${source}` : '/path'} className={card}>
         <Icon name="target" size={26} className="text-brand flex-none" />
         <span className="min-w-0 flex-1">
-          <b className="block">마스터리 정밀 학습</b>
-          <span className="block text-xs text-slate-500">{studySourceLabel(source)} · 블라인드 → 스크립트 → 쉐도잉 → 최종 점검으로 학습해요.</span>
+          <b className="block">심화 학습</b>
+          <span className="block text-xs text-slate-500">{studySourceLabel(source)} · 듣고 이해 → 구조 분석 → 따라 말하기 → 떠올리기 카드로 깊이 익혀요.</span>
+        </span>
+        <Icon name="arrowRight" size={18} className="text-slate-400" />
+      </Link>
+
+      <Link to="/review" className={card}>
+        <Icon name="repeat" size={26} className="text-brand flex-none" />
+        <span className="min-w-0 flex-1">
+          <b className="block">복습{dueCount ? ` (${dueCount}장 도착)` : ''}</b>
+          <span className="block text-xs text-slate-500">{dueCount ? '심화 학습에서 못한 문장을 다시 확인해요.' : '못한 문장이 1일 · 3일 · 7일 뒤에 다시 나와요.'}</span>
         </span>
         <Icon name="arrowRight" size={18} className="text-slate-400" />
       </Link>
@@ -67,7 +79,7 @@ export default function StudyPage() {
         <Icon name="headphones" size={26} className="text-brand flex-none" />
         <span className="min-w-0 flex-1">
           <b className="block">편하게 듣기</b>
-          <span className="block text-xs text-slate-500">{studySourceLabel(source)} · {basic ? `전체 ${unlocked}과를 바로 들어요.` : `마스터리·데일리를 마친 과를 반복해 들어요. (해금 ${unlocked}과)`}</span>
+          <span className="block text-xs text-slate-500">{studySourceLabel(source)} · {basic ? `전체 ${unlocked}과를 바로 들어요.` : `심화 학습·데일리를 마친 과를 반복해 들어요. (해금 ${unlocked}과)`}</span>
         </span>
         <Icon name="arrowRight" size={18} className="text-slate-400" />
       </Link>

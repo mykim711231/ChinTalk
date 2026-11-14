@@ -134,13 +134,13 @@ export default function PassivePage() {
       <h1 className="text-xl font-bold inline-flex items-center gap-2"><Icon name="headphones" size={22} className="text-brand" /> 편하게 듣기</h1>
       <StudySourceSelector value={source} onChange={(value) => { stop(); setNote(null); setSource(value); }} />
       <p className="text-sm text-brand">재생 대상: {studySourceLabel(source)}{source === 'all' ? ' (본문 다음 회화 순서)' : ''}</p>
-      <p className="text-sm text-slate-600">{basic ? '모든 과의 본문·회화를 바로 듣고 반복할 수 있어요. 화면을 켜 둔 상태에서 사용해 주세요.' : <>마스터리나 데일리로 <b>익숙해진 과</b>를 반복해서 들어요. {voiceMode === 'device' ? '기기 음성은 화면을 켜 둔 상태에서 사용해 주세요.' : '녹음 음성은 화면을 꺼도 재생할 수 있어요(기기·브라우저에 따라 제한될 수 있어요).'}</>}</p>
-      {!basic && <p className="text-xs text-slate-500">해금 방법: <b>학습</b> 메뉴에서 한 과의 <b>4단계 마스터리</b>를 달성하거나 <b>10분 데일리</b> 6단계를 끝내면 그 과가 자동으로 추가돼요.</p>}
+      <p className="text-sm text-slate-600">{basic ? '모든 과의 본문·회화를 바로 듣고 반복할 수 있어요. 화면을 켜 둔 상태에서 사용해 주세요.' : <>심화 학습이나 데일리로 <b>익숙해진 과</b>를 반복해서 들어요. {voiceMode === 'device' ? '기기 음성은 화면을 켜 둔 상태에서 사용해 주세요.' : '녹음 음성은 화면을 꺼도 재생할 수 있어요(기기·브라우저에 따라 제한될 수 있어요).'}</>}</p>
+      {!basic && <p className="text-xs text-slate-500">해금 방법: <b>학습</b> 메뉴에서 한 과의 <b>심화 학습</b>을 마치거나 <b>10분 데일리</b> 6단계를 끝내면 그 과가 자동으로 추가돼요.</p>}
 
       {unlocked.length === 0 ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-5 text-center space-y-3">
           <Icon name="lock" size={32} className="mx-auto text-slate-400" />
-          <p className="text-sm">{basic ? '교재 목록을 불러오는 중이에요.' : <>아직 해금된 음원이 없어요. 한 과의 <b>마스터리</b>나 <b>10분 데일리</b>를 마치면 여기에 나타나요.</>}</p>
+          <p className="text-sm">{basic ? '교재 목록을 불러오는 중이에요.' : <>아직 해금된 음원이 없어요. 한 과의 <b>심화 학습</b>이나 <b>10분 데일리</b>를 마치면 여기에 나타나요.</>}</p>
           <div className="flex justify-center gap-2">
             {!basic && <Link to={`/daily?source=${source}`} className={btnBrand}><Icon name="timer" size={14} /> 10분 데일리</Link>}
             <Link to="/study" className={btn}>학습 메뉴</Link>

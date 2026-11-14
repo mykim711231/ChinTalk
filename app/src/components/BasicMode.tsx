@@ -4,7 +4,7 @@ export function BasicModeNotice() {
   return (
     <aside aria-label="기본 학습 모드 안내" className="mx-4 mt-3 rounded-xl border border-brand-200 bg-brand-50 p-3 text-sm space-y-1">
       <p className="font-bold">기본 학습 모드</p>
-      <p>교재와 듣기를 제공해요. 10분 데일리·마스터리·마이크 녹음은 제한돼요.</p>
+      <p>교재와 듣기를 제공해요. 10분 데일리·심화 학습·복습·마이크 녹음은 제한돼요.</p>
       <p className="text-xs text-slate-600">전체 기능은 지원 중인 Android와 최신 Chrome에서 이용하세요. <Link to="/help" className="text-brand underline">도움말</Link></p>
     </aside>
   );

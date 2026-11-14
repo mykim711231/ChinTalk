@@ -122,7 +122,7 @@ export default function LessonPage() {
       </div>
       <div ref={follow.controlsRef} className={`flex flex-wrap items-center gap-2 mb-3 ${playing >= 0 ? 'playback-controls' : ''}`} aria-label="듣기 설정">
         {!basic && <button type="button" disabled={!canDisplay || !playableVerses.length} onClick={() => nav(`/lesson/${lesson.id}/mastery?source=${masterySource}`)} title={!canDisplay ? '본문·회화 탭에서 사용할 수 있어요.' : undefined} className="inline-flex items-center gap-1.5 rounded-full bg-brand text-white text-sm font-semibold px-3 py-1 disabled:opacity-40 disabled:cursor-not-allowed">
-          <Icon name="target" size={14} /> 4단계 마스터리{masteryResult ? ' (완료)' : ''}
+          <Icon name="target" size={14} /> 심화 학습{masteryResult ? ' (완료)' : ''}
         </button>}
         <button type="button" disabled={!playableVerses.length} onClick={() => { if (ordinary) stopAll(); else { setKoMode(false); void playback.play('once'); } }} className="inline-flex items-center gap-1.5 rounded-full border border-brand text-brand text-sm font-semibold px-3 py-1 disabled:opacity-40 disabled:cursor-not-allowed">
           <Icon name={ordinary ? 'stop' : 'play'} size={14} /> {ordinary ? (koMode ? '듣기 멈추기' : '멈추기') : tab === 'grammar' ? '문법 전체 듣기' : tab === 'trap' ? '함정 전체 듣기' : tab === 'text' ? '본문 전체 듣기' : tab === 'dialog' ? '회화 전체 듣기' : tab === 'vocab' ? '단어 전체 듣기' : '전체 듣기'}

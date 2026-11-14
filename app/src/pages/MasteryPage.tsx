@@ -16,10 +16,15 @@ import StudySourceSelector from '../components/StudySourceSelector';
 import HanText from '../components/HanText';
 import { alignChars } from '../lib/pinyin';
 import { Toggle } from '../components/ui';
+import RecallDeck from '../components/RecallDeck';
+import { buildQuiz, type QuizItem } from '../lib/quiz';
+import { masteryScore } from '../lib/recall';
+import { pendingKey, useReviewStore } from '../stores/useReviewStore';
+import { useHighlightStore } from '../stores/useHighlightStore';
 import { useShadowing, type ShadowingController } from '../hooks/useShadowing';
 import { usePlaybackFollow } from '../hooks/usePlaybackFollow';
 
-const STAGES = ['Blind', 'Script', 'Shadowing', 'Final'] as const;
+const STAGES = ['듣고 이해', '구조 분석', '따라 말하기', '떠올리기'] as const;
 const btn = 'inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white text-sm font-semibold px-3 py-2 disabled:opacity-40';
 const btnBrand = 'inline-flex items-center gap-1.5 rounded-full bg-brand text-white text-sm font-semibold px-4 py-2 disabled:opacity-40';
 
@@ -47,14 +52,6 @@ function usePlayAll(lines: StudyLine[]) {
   return { playing, play, stop };
 }
 
-function Blur({ on, children }: { on: boolean; children: React.ReactNode }) {
-  return (
-    <div className={on ? 'blur-md select-none pointer-events-none' : ''} aria-hidden={on}>
-      {children}
-    </div>
-  );
-}
-
 export default function MasteryPage() {
   const { id = '' } = useParams();
   const { source, setSource } = useStudySource();
@@ -73,9 +70,17 @@ function MasteryContent({ id, source, onSourceChange }: {
 }) {
   const [lesson, setLesson] = useState<Lesson | null | undefined>(undefined);
   const [stage, setStage] = useState(0);
-  const [picked, setPicked] = useState<Set<string>>(new Set());
   const [popup, setPopup] = useState<{ chunk: Chunk; traps: Lesson['traps'] } | null>(null);
-  const [score, setScore] = useState(0);
+  const pKey = pendingKey(id, source);
+  const pending = useReviewStore((s) => s.pending[pKey]);
+  const { setPending, addWeak } = useReviewStore();
+  const addRed = useHighlightStore((s) => s.addRed);
+  const [quiz, setQuiz] = useState<{ correct: number; total: number } | null>(() => {
+    const q = useReviewStore.getState().pending[pKey]?.quiz;
+    return q == null ? null : { correct: Math.round(q * 100), total: 100 };
+  });
+  const [result, setResult] = useState<{ score: number } | null>(null);
+  const [deckKey, setDeckKey] = useState(0);
   const prog = useProgressStore();
   const { markMastered, setLast } = prog;
   const level = useSettingsStore((s) => s.level);
@@ -92,19 +97,10 @@ function MasteryContent({ id, source, onSourceChange }: {
     let active = true;
     setLesson(undefined);
     setStage(0);
-    setPicked(new Set());
     setPopup(null);
-    setScore(0);
     loadLesson(id).then((l) => { if (active) { setLesson(l ?? null); if (l) setLast(l.id); } });
     return () => { active = false; };
   }, [id, setLast]);
-
-  const keywords = useMemo(() => {
-    const seen = new Set<string>();
-    const out: Chunk[] = [];
-    for (const { verse } of lines) for (const c of verse.chunks) if (!seen.has(c.zh)) { seen.add(c.zh); out.push(c); }
-    return out.slice(0, 16);
-  }, [lines]);
 
   const go = (n: number) => { all.stop(); shadow.stopPlayback(); shadow.stopRecording(); setPopup(null); setStage(n); };
 
@@ -121,14 +117,14 @@ function MasteryContent({ id, source, onSourceChange }: {
     <main ref={follow.readingRef} className="p-4 pb-24 space-y-4">
       <Link to={`/lesson/${lesson.id}`} className="text-sm text-slate-500">← {lesson.no}. {lesson.titleZh} 과 참고</Link>
       <div className="flex items-baseline justify-between gap-2">
-        <h1 className="text-xl font-bold">4단계 마스터리</h1>
-        {finished && <span className="text-xs rounded-full bg-green-100 text-green-800 px-2 py-0.5">{sourceLabel} 완료 · {finished.score}점</span>}
+        <h1 className="text-xl font-bold">심화 학습</h1>
+        {finished && <span className="text-xs rounded-full bg-green-100 text-green-800 px-2 py-0.5">{sourceLabel} 완료 · {finished.score}점{finished.score >= 80 ? ' · 마스터' : ''}</span>}
       </div>
 
       <LessonSelect label="과 선택" metas={metas} value={lesson.id} recId={recommendLesson(metas, prog, level)?.id} isDone={(id) => isUnlocked(prog, id)} onChange={(v) => { all.stop(); nav(`/lesson/${v}/mastery?source=${source}`); }} />
 
       <StudySourceSelector value={source} lesson={lesson} onChange={(value) => { all.stop(); onSourceChange(value); }} />
-      <p className="text-xs text-slate-500">{sourceLabel} · {lines.length}문장으로 4단계를 진행해요. 대상을 바꾸면 1단계부터 시작해요.</p>
+      <p className="text-xs text-slate-500">{sourceLabel} · {lines.length}문장으로 4단계(듣고 이해 → 구조 분석 → 따라 말하기 → 떠올리기)를 진행해요. 대상을 바꾸면 1단계부터 시작해요.</p>
       {!lines.length && <p role="status" className="text-sm text-slate-500">등록된 {sourceLabel} 내용이 없어요. 다른 학습 내용을 선택해 주세요.</p>}
 
       <ol className="grid grid-cols-4 gap-1" aria-label="진행 단계">
@@ -147,7 +143,7 @@ function MasteryContent({ id, source, onSourceChange }: {
         ))}
       </ol>
 
-      <div ref={follow.controlsRef} className={`flex flex-wrap items-center gap-3 ${all.playing >= 0 ? 'playback-controls' : ''}`} aria-label="듣기와 표시 설정">
+      {(stage === 1 || stage === 2) && <div ref={follow.controlsRef} className={`flex flex-wrap items-center gap-3 ${all.playing >= 0 ? 'playback-controls' : ''}`} aria-label="듣기와 표시 설정">
         <button type="button" disabled={!lines.length || !!shadow.capture} className={btnBrand} onClick={() => {
           shadow.stopPlayback();
           if (all.playing >= 0) all.stop(); else void all.play();
@@ -159,36 +155,12 @@ function MasteryContent({ id, source, onSourceChange }: {
           <Toggle label="의미단위 표시" on={showMeaningUnits} onClick={() => toggle('showMeaningUnits')} />
         </div>
         {all.playing >= 0 && <span role="status" className="text-xs text-slate-500">재생 중 {all.playing + 1}/{lines.length}문장</span>}
-      </div>
+      </div>}
 
-      {stage === 0 && (
-        <section className="space-y-3">
-          <p className="text-sm text-slate-600">자막 없이 소리만 듣고, <b>들리는 키워드</b>를 눌러 보세요.</p>
-          <Blur on>
-            <div className="rounded-xl border border-slate-200 bg-white p-3 space-y-1">
-              {lines.map(({ verse }, i) => <MasteryText key={i} verse={verse} />)}
-            </div>
-          </Blur>
-          <div>
-            <div className="text-sm font-semibold mb-1">들리는 키워드 ({picked.size}/{keywords.length})</div>
-            <div className="flex flex-wrap gap-2">
-              {keywords.map((c) => {
-                const on = picked.has(c.id);
-                return (
-                  <button
-                    key={c.id} type="button" aria-pressed={on}
-                    onClick={() => setPicked((p) => { const n = new Set(p); if (n.has(c.id)) n.delete(c.id); else n.add(c.id); return n; })}
-                    className={`rounded-full border px-3 py-1.5 text-sm ${on ? 'bg-brand text-white border-brand' : 'bg-white border-slate-300'}`}
-                  >
-                    {on ? c.zh : '● ● ●'}
-                  </button>
-                );
-              })}
-            </div>
-            <p className="text-xs text-slate-500 mt-1">누르면 그 칩의 글자가 보여요. 들렸다고 생각하는 것만 눌러 보세요.</p>
-          </div>
-        </section>
-      )}
+      {stage === 0 && <Quiz key={`${lesson.id}:${source}`} lines={lines} previous={quiz} onDone={(r, wrong) => {
+        setQuiz(r);
+        for (const i of wrong) addRed(lines[i].verse.chunks.map((c) => c.id));
+      }} />}
 
       {stage === 1 && (
         <section className="space-y-3">
@@ -234,45 +206,50 @@ function MasteryContent({ id, source, onSourceChange }: {
 
       {stage === 2 && <Shadowing lines={lines} shadow={shadow} playingIndex={all.playing} />}
 
-      {stage === 3 && (
-        <section className="space-y-3">
-          <p className="text-sm text-slate-600">자막을 다시 가리고 들어 보세요. 처음보다 얼마나 잘 들리나요?</p>
-          <Blur on>
-            <div className="rounded-xl border border-slate-200 bg-white p-3 space-y-1">
-              {lines.map(({ verse }, i) => <MasteryText key={i} verse={verse} />)}
+      {stage === 3 && (result ? (
+        <section className="space-y-3" aria-label="심화 학습 결과">
+          <div role="status" className="rounded-xl border border-green-300 bg-green-50 p-4 text-sm space-y-2">
+            <p className="text-lg font-bold">{result.score >= 80 ? '마스터' : '완료'} · {result.score}점</p>
+            <p>듣고 이해 {quiz ? `${quiz.correct}/${quiz.total}` : '건너뜀'} · 떠올리기는 첫 시도 정답률로 계산해요. 추가 학습에서 맞힌 것은 점수에 더하지 않아요.</p>
+            <p>못한 문장은 빨강 북마크에 담고, 1일 · 3일 · 7일 뒤에 <Link to="/review" className="underline font-semibold">복습</Link>으로 다시 나와요. 이 과의 음원이 <b>편하게 듣기</b>에 해금되었어요.</p>
+            <div className="flex flex-wrap gap-2">
+              <Link to={`/passive?source=${source}`} className={btn}><Icon name="headphones" size={16} /> 편하게 듣기</Link>
+              <Link to="/path" className={btn}>학습 경로</Link>
+              <button type="button" className={btn} onClick={() => { setResult(null); setDeckKey((k) => k + 1); }}>카드 다시 하기</button>
             </div>
-          </Blur>
-          <div role="radiogroup" aria-label="자기 평가" className="flex gap-1 pt-2">
-            {[1, 2, 3, 4, 5].map((n) => (
-              <button
-                key={n} type="button" role="radio" aria-checked={score === n} aria-label={`${n}점`}
-                onClick={() => setScore(n)}
-                className={`flex-1 rounded-xl border py-3 grid place-items-center ${score >= n ? 'bg-brand-50 border-brand text-brand' : 'bg-white border-slate-200 text-slate-400'}`}
-              >
-                <Icon name="star" size={22} />
-                <span className="text-xs font-bold">{n}</span>
-              </button>
-            ))}
           </div>
-          <div className="flex justify-between text-xs text-slate-500"><span>거의 안 들려요</span><span>다 들려요</span></div>
-          <button
-            type="button" disabled={!score || !lines.length}
-            onClick={() => { all.stop(); markMastered(lesson.id, score, source); }}
-            className={`${btnBrand} w-full justify-center py-3`}
-          >
-            <Icon name="check-circle" size={18} /> {finished ? '평가 다시 제출' : '마스터리 완료'}
-          </button>
-          {finished && (
-            <div role="status" className="rounded-xl border border-green-300 bg-green-50 p-3 text-sm space-y-2">
-              <p><b>{sourceLabel} 마스터리 완료!</b> 이 과의 음원이 <b>편하게 듣기</b>에 해금되었어요.</p>
-              <div className="flex gap-2">
-                <Link to={`/passive?source=${source}`} className={btn}><Icon name="headphones" size={16} /> 편하게 듣기</Link>
-                <Link to="/path" className={btn}>학습 경로</Link>
-              </div>
-            </div>
-          )}
         </section>
-      )}
+      ) : (() => {
+        const rest = pending ? new Set(pending.remaining) : null;
+        const deckLines = rest ? lines.filter((l) => rest.has(l.verse.zh)) : lines;
+        if (!deckLines.length) return null;
+        return (
+          <div className="space-y-2">
+            <p className="text-sm text-slate-600">{pending ? `지난번에 멈춘 곳에서 이어 해요. 남은 카드 ${deckLines.length}장` : '한글 뜻을 보고 중국어를 떠올려 말한 뒤, 뒤집어서 한자·병음·한글로 확인하세요. 못한 카드는 따라 말하기 후 추가 학습에서 다시 나와요.'}</p>
+            <RecallDeck
+              key={`${deckKey}:${pending ? 'resume' : 'new'}`}
+              lines={deckLines}
+              carry={pending ? { correct: pending.correct, total: pending.total } : undefined}
+              onGrade={(line, ok) => {
+                if (ok) return;
+                addRed(line.verse.chunks.map((c) => c.id));
+                addWeak(lesson.id, line.verse.zh);
+              }}
+              onLater={(later) => {
+                setPending(pKey, { ...later, quiz: quiz ? quiz.correct / quiz.total : null });
+                nav('/study');
+              }}
+              onFinish={({ correct, total }) => {
+                const recall = total ? correct / total : 1;
+                const score = masteryScore(quiz ? quiz.correct / quiz.total : null, recall);
+                markMastered(lesson.id, score, source);
+                setPending(pKey, null);
+                setResult({ score });
+              }}
+            />
+          </div>
+        );
+      })())}
 
       <div className="flex justify-between pt-2">
         <button type="button" className={btn} disabled={stage === 0} onClick={() => go(stage - 1)}>
@@ -283,6 +260,63 @@ function MasteryContent({ id, source, onSourceChange }: {
         </button>
       </div>
     </main>
+  );
+}
+
+function Quiz({ lines, previous, onDone }: {
+  lines: StudyLine[]; previous: { correct: number; total: number } | null;
+  onDone: (result: { correct: number; total: number }, wrongLineIndexes: number[]) => void;
+}) {
+  const items = useMemo<QuizItem[]>(() => buildQuiz(lines), [lines]);
+  const [n, setN] = useState(0);
+  const [chosen, setChosen] = useState<number | null>(null);
+  const [wrong, setWrong] = useState<number[]>([]);
+  const [correct, setCorrect] = useState(0);
+  const [done, setDone] = useState(false);
+  const item = items[n];
+  useEffect(() => {
+    if (!item || done) return;
+    void speakAsync(lines[item.index].verse.zh);
+    return () => stopSpeak();
+  }, [item, done, lines]);
+
+  if (!items.length) return <p role="status" className="text-sm text-slate-500">이 학습 대상은 문장이 적어 퀴즈를 건너뛰어요. 다음 단계로 가 주세요.</p>;
+  if (done) {
+    return (
+      <section className="space-y-3" aria-label="듣고 이해 결과">
+        <p role="status" className="rounded-xl border border-brand-200 bg-brand-50 p-3 text-sm"><b>{correct}/{items.length}</b> 맞혔어요. 틀린 문장은 빨강 북마크에 담았어요. 다음 단계에서 구조를 확인해요.</p>
+        <button type="button" className={btn} onClick={() => { setN(0); setChosen(null); setWrong([]); setCorrect(0); setDone(false); }}>퀴즈 다시 풀기</button>
+      </section>
+    );
+  }
+  const pick = (i: number) => {
+    if (chosen !== null) return;
+    setChosen(i);
+    if (i === item.answer) setCorrect((c) => c + 1); else setWrong((w) => [...w, item.index]);
+  };
+  const next = () => {
+    if (n + 1 < items.length) { setN(n + 1); setChosen(null); return; }
+    setDone(true);
+    onDone({ correct, total: items.length }, wrong);
+  };
+  return (
+    <section className="space-y-3" aria-label="듣고 이해 퀴즈">
+      <p className="text-sm text-slate-600">자막 없이 소리를 듣고, 알맞은 한글 뜻을 고르세요. ({n + 1}/{items.length}){previous ? ` · 지난 결과 ${previous.correct}/${previous.total}` : ''}</p>
+      <button type="button" className={btnBrand} onClick={() => void speakAsync(lines[item.index].verse.zh)}><Icon name="speaker" size={16} /> 다시 듣기</button>
+      <div className="space-y-2" role="group" aria-label="한글 뜻 선택">
+        {item.options.map((o, i) => {
+          const state = chosen === null ? '' : i === item.answer ? 'border-green-500 bg-green-50' : i === chosen ? 'border-red-400 bg-red-50' : 'opacity-60';
+          return <button key={i} type="button" disabled={chosen !== null} onClick={() => pick(i)} className={`w-full text-left rounded-xl border px-3 py-3 text-sm bg-white border-slate-200 ${state}`}>{o}</button>;
+        })}
+      </div>
+      {chosen !== null && (
+        <div role="status" className="space-y-2">
+          <div lang="zh-Hans" className="font-hanzi text-xl">{lines[item.index].verse.zh}</div>
+          <div className="text-sm">{chosen === item.answer ? '정답이에요.' : '아쉬워요. 초록색이 정답이에요.'}</div>
+          <button type="button" className={btnBrand} onClick={next}>{n + 1 < items.length ? '다음 문제' : '결과 보기'}</button>
+        </div>
+      )}
+    </section>
   );
 }
 

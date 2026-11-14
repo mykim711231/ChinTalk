@@ -8,7 +8,7 @@ const items = [
   { to: '/settings', label: '설정', icon: 'settings' },
 ];
 
-const STUDY = /^\/(study|daily|passive|lesson\/[^/]+\/mastery)/;
+const STUDY = /^\/(study|daily|passive|review|lesson\/[^/]+\/mastery)/;
 
 export default function BottomNav() {
   const { pathname } = useLocation();

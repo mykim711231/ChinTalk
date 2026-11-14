@@ -12,6 +12,7 @@ import type { LessonMeta } from '../types/lesson';
 import Icon from '../components/Icon';
 import InviteQrModal from '../components/InviteQrModal';
 import { isBasicMode } from '../lib/compatibility';
+import { dueCards, useReviewStore } from '../stores/useReviewStore';
 
 const LEVEL_ICONS = ['sprout', 'layers', 'mountain', 'award'];
 const card = 'rounded-2xl border border-slate-200 bg-white shadow-sm';
@@ -23,6 +24,7 @@ export default function HomePage() {
   const [qr, setQr] = useState(false);
   const appUrl = window.location.origin + import.meta.env.BASE_URL;
   const prog = useProgressStore();
+  const dueCount = dueCards(useReviewStore((st) => st.cards)).length;
   const { done, last } = prog;
   const level = useSettingsStore((s) => s.level);
   const marks = useHighlightStore((s) => s.marks);
@@ -131,11 +133,22 @@ export default function HomePage() {
         <Icon name="chevronRight" size={16} className="text-slate-400" />
       </Link>
 
+      {!basic && dueCount > 0 && (
+        <Link to="/review" className={`${card} flex items-center gap-3 p-4`}>
+          <Icon name="repeat" size={24} className="text-brand flex-none" />
+          <span className="flex-1 min-w-0">
+            <b className="block">오늘의 복습 {dueCount}장</b>
+            <span className="block text-sm text-slate-500">심화 학습에서 못한 문장을 다시 확인해요.</span>
+          </span>
+          <Icon name="chevronRight" size={16} className="text-slate-400" />
+        </Link>
+      )}
+
       {lastLesson && (
         <Link to={`/lesson/${lastLesson.id}${basic ? '' : '/mastery'}`} className={`${card} flex items-center gap-3 p-4`}>
           <Icon name="target" size={24} className="text-brand flex-none" />
           <span className="flex-1 min-w-0">
-            <b className="block">{basic ? '이어 학습하기 (교재)' : '이어 학습하기 (마스터리)'}</b>
+            <b className="block">{basic ? '이어 학습하기 (교재)' : '이어 학습하기 (심화 학습)'}</b>
             <span className="block text-sm text-slate-500 truncate">{lastLesson.no}. {lastLesson.titleZh} · {lastLesson.titleKo}</span>
           </span>
           <Icon name="chevronRight" size={16} className="text-slate-400" />
