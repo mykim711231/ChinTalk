@@ -127,9 +127,9 @@ export default function LessonPage() {
         <button type="button" disabled={!playableVerses.length} onClick={() => { if (ordinary) stopAll(); else { setKoMode(false); void playback.play('once'); } }} className="inline-flex items-center gap-1.5 rounded-full border border-brand text-brand text-sm font-semibold px-3 py-1 disabled:opacity-40 disabled:cursor-not-allowed">
           <Icon name={ordinary ? 'stop' : 'play'} size={14} /> {ordinary ? (koMode ? '듣기 멈추기' : '멈추기') : tab === 'grammar' ? '문법 전체 듣기' : tab === 'trap' ? '함정 전체 듣기' : tab === 'text' ? '본문 전체 듣기' : tab === 'dialog' ? '회화 전체 듣기' : tab === 'vocab' ? '단어 전체 듣기' : '전체 듣기'}
         </button>
-        {readOnly && (
+        {(readOnly || tab === 'text' || tab === 'dialog') && (
           <button type="button" disabled={!playableVerses.length || (ordinary && !koMode)} aria-pressed={ordinary && koMode} onClick={() => { if (ordinary) stopAll(); else { setKoMode(true); void playback.play('once', { withKo: true }); } }} className="inline-flex items-center gap-1.5 rounded-full border border-brand text-brand text-sm font-semibold px-3 py-1 disabled:opacity-40 disabled:cursor-not-allowed">
-            <Icon name={ordinary && koMode ? 'stop' : 'play'} size={14} /> {ordinary && koMode ? '해설 듣기 멈추기' : tab === 'grammar' ? '문법 + 한글 해설 듣기' : '함정 + 한글 해설 듣기'}
+            <Icon name={ordinary && koMode ? 'stop' : 'play'} size={14} /> {ordinary && koMode ? '한글 포함 듣기 멈추기' : tab === 'grammar' ? '문법 + 한글 해설 듣기' : tab === 'trap' ? '함정 + 한글 해설 듣기' : tab === 'text' ? '본문 + 한글 듣기' : '회화 + 한글 듣기'}
           </button>
         )}
         {!readOnly && <button type="button" disabled={!playableVerses.length} aria-pressed={learning} aria-describedby="learning-listening-guide" onClick={() => { if (learning) stopAll(); else void playback.play('learning'); }} className="inline-flex items-center gap-1.5 rounded-full border border-brand text-brand text-sm font-semibold px-3 py-1 disabled:opacity-40 disabled:cursor-not-allowed">
